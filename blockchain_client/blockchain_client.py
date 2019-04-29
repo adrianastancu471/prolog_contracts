@@ -22,6 +22,7 @@ from collections import OrderedDict
 from pyswip import Prolog
 import multiprocessing
 import time
+import json
 
 import binascii
 
@@ -92,6 +93,10 @@ def make_contract():
 def register():
     return render_template('./register.html')
 
+@app.route('/reset_password')
+def reset_password():
+    return render_template('./reset_password.html')
+
 @app.route('/wallet/new', methods=['GET'])
 def new_wallet():
 	random_gen = Crypto.Random.new().read
@@ -156,51 +161,127 @@ def create_contract_prolog(e,q_in,q_out):
 def register_user():
 	
 	email = request.form['email']
+	username = request.form['username']
 	password = request.form['password']
 
-	user = {'data': {'account':'active',},}
-	user['data']['username']=email
-	user['data']['password']=password
-	metadata = {'country': 'romania'}
+	#verificare daca mai exista acel user
+	user_asset = bdb.assets.get(search=username)
+	idx = -1
+	for i, user in enumerate(user_asset):
+		if user['data']['username']== username :
+			idx = i
 
-	account_creator = generate_keypair()
+	if idx != -1:
+		response = {'username': '', 'account':'exists'}
+		return jsonify(response), 200
+
+	user = {'data':{'username':"",'email':"",'keypair':{'public_key':'','private_key':''}}}
+	user['data']['username']= username
+	user['data']['email']= email
+	metadata = {'account': 'active','password':password}
+
+	account_keypair = generate_keypair()
+	user['data']['keypair']['public_key'] = account_keypair.public_key
+	user['data']['keypair']['private_key'] = account_keypair.private_key
 
 	prepared_creation_tx = bdb.transactions.prepare(
         operation='CREATE', 
-        signers=account_creator.public_key, 
-        asset=user, metadata=metadata,)
+        signers=account_keypair.public_key, 
+        asset=user, 
+		metadata=metadata,)
 
 	fulfilled_creation_tx = bdb.transactions.fulfill(
         prepared_creation_tx, 
-        private_keys=account_creator.private_key)
+        private_keys=account_keypair.private_key)
 
 	sent_creation_tx = bdb.transactions.send_commit(fulfilled_creation_tx)
 
-	print(sent_creation_tx['id'])
-
-
-	response = {'userid': sent_creation_tx['id']}
+	response = {'username': username,'account':'created'}
 
 	return jsonify(response), 200
 
 @app.route('/login/user', methods=['POST'])
 def login_user():
 	
-	userid = request.form['userid']
+	username = request.form['username']
+	password = request.form['password']
 
-	block_height = bdb.blocks.get(txid=userid)
-	
-	print(block_height)
-	if block_height is None:
+	user_asset = bdb.assets.get(search=username)
+	idx = -1
+	for i, user in enumerate(user_asset):
+		user_transaction = bdb.transactions.get(asset_id=user["id"])
+		transaction = user_transaction[len(user_transaction)-1]
+		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password:
+			idx = i
+
+	if idx == -1:
 		response = {'account': 'invalid'}
 		return jsonify(response), 200
-        
-	block = bdb.blocks.retrieve(str(block_height))
-    
-	account = block['transactions'][0]['asset']['data']['account']
-	print(account)
 	
-	response = {'account': account}
+	response = {'account': user_transaction[idx]['id']}
+
+	return jsonify(response), 200
+
+#Resetare parola
+@app.route('/reset_password/user', methods=['POST'])
+def reset_password_user():
+	
+	current_password = request.form['current_password']
+	username = request.form['password2']
+	password = request.form['password']
+
+	user_asset = bdb.assets.get(search=username)
+	idx = -1
+	user_transaction=[]
+	asset_id = ""
+	for i, user in enumerate(user_asset):
+		user_transaction = bdb.transactions.get(asset_id=user["id"])
+		transaction = user_transaction[len(user_transaction)-1]
+		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== current_password:
+			idx = len(user_transaction)-1
+			asset_id = user['id']
+
+	if idx == -1:
+		response = {'username': '', 'account':'invalid'}
+		return jsonify(response), 200
+
+	txid = user_transaction[idx]["id"]
+	creation_tx = bdb.transactions.retrieve(txid)
+
+	transfer_asset = {
+		'id': asset_id
+	}
+	metadata = {
+		'account': 'active',
+		'password':password
+	}
+
+	output = creation_tx['outputs'][0]
+
+	transfer_input = {
+		'fulfillment': output['condition']['details'],
+		'fulfills': {
+			'output_index': 0,
+			'transaction_id': creation_tx['id'],
+		},
+		'owners_before': output['public_keys'],
+	}
+
+	prepared_transfer_tx = bdb.transactions.prepare(
+		operation='TRANSFER',
+		asset=transfer_asset,
+		inputs=transfer_input,
+		metadata=metadata,
+		recipients=user['data']['keypair']['public_key'],
+	)
+
+	fulfilled_transfer_tx = bdb.transactions.fulfill(
+		prepared_transfer_tx,
+		private_keys=user['data']['keypair']['private_key'],
+	)
+	bdb.transactions.send_commit(fulfilled_transfer_tx)
+	
+	response = {'username': username,'account':'active'}
 
 	return jsonify(response), 200
 

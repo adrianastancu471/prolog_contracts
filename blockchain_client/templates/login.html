@@ -18,34 +18,6 @@
 
   <body onload="checkCookie()">
 
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-      <div class="container">
-        <a class="navbar-brand" href="#">Blockchain Client</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarResponsive">
-          <ul class="navbar-nav ml-auto">
-            <li class="nav-item active">
-              <a class="nav-link" href="/">Wallet Generator
-                <span class="sr-only">(current)</span>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/make/transaction">Make Transaction</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/view/transactions">View Transactions</a>
-            </li>            
-            <li class="nav-item">
-              <a class="nav-link" href="/make/contract">Make Contract</a>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </nav>
-
 	 <!-- Modal -->
   <div class="modal-dialog" >
 
@@ -56,9 +28,17 @@
             <form id="login_form">
 
                 <div class="row">
-                  <label class="col-sm-12">User ID:</label>
+                  <label class="col-sm-12">Username:</label>
                   <div class="col-sm-12">
-                    <input type="text" name="userid" id="userid" rows="2" class="form-control" >
+                    <input type="text" name="username" id="username" rows="2" class="form-control" >
+
+                  </div>
+                </div>
+
+                <div class="row">
+                  <label class="col-sm-12">Password:</label>
+                  <div class="col-sm-12">
+                    <input type="password" name="password" id="password" rows="2" class="form-control" >
 
                   </div>
                 </div>
@@ -68,7 +48,7 @@
           </div>
 
           <div class="modal-footer">
-            <button type="button" id="button_forgot_password"class="btn btn-danger"> Forgot password </button>
+           <!-- <button type="button" id="button_forgot_password"class="btn btn-danger"> Forgot password </button> -->
             <button type="button" id="button_register" class="btn btn-success">Register</button>
             <button type="button" id="button_login" class="btn btn-success">Login</button>
           </div>
@@ -96,10 +76,15 @@
               data: $('#login_form').serialize(),
               success: function(response){
 
-                var account = response["account"];
-                
-                document.location.href="/index";
-                
+                var account_valid = response["account"];
+                if (account_valid === "invalid")
+                {
+                  alert("Account invalid!");
+                }else{
+                  document.cookie = createCookie("user_id",response["account"]);
+                  document.cookie = createCookie("username",document.getElementById("username").value);
+                  document.location.href="/index";
+                }
               },
               error: function(error){
                 console.log(error);
@@ -116,9 +101,13 @@
 
 
       function checkCookie() {
-        var user=getCookie("userid");
+        var user=getCookie("username");
         if (user != "") {
-          document.getElementById("userid").value = user;
+          document.getElementById("username").value = user;
+        }
+        var user_id=getCookie("user_id");
+        if (user_id != "") {
+          eraseCookie("user_id")
         }
       }
 
@@ -137,6 +126,36 @@
         }
         return "";
       }
+
+      function createCookie(name,value,days) {
+        if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 *1000));
+            var expires = "; expires=" + date.toGMTString();
+        } else {
+            var expires = "";
+        }
+        document.cookie = name + "=" + value + expires + "; path=/";
+        }
+
+        function readCookie(name) {
+          var nameEQ = name + "=";
+          var ca = document.cookie.split(';');
+          for(var i=0;i < ca.length;i++) {
+              var c = ca[i];
+              while (c.charAt(0)==' ') {
+                  c = c.substring(1,c.length);
+              }
+              if (c.indexOf(nameEQ) == 0) {
+                  return c.substring(nameEQ.length,c.length);
+              }
+          }
+        return null;
+        }
+
+        function eraseCookie(name) {
+            createCookie(name,"",-1);
+        }  
     </script>
 
 
