@@ -57,9 +57,10 @@
 
 
           <div class="card-body">
-            <h4 class="card-title">Wallet Generator</h4>
-            <p class="card-text">Click on the button below to generate your blockchain wallet</p>
-            <input type="button" class="btn btn-primary btn-lg" value="Generate Wallet">
+            <h4 class="card-title">Wallet </h4>
+            <p class="card-text">Click on the button below to view your blockchain public key. In order to view the pirvate key, confirm your password.</p>
+            <input type="button" class="btn btn-primary btn-lg" id ="view_public_keys_button" value="View public keys">
+            <input type="button" class="btn btn-primary btn-lg" id ="view_private_keys_button" value="View private keys">
           </div>
 
         </div>
@@ -67,6 +68,73 @@
     </div>
 
     <br>
+
+
+    <div class="modal modal-alert fade" id="basicModal" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
+        <div class="modal-dialog">
+  
+          <div class="modal-content">
+  
+            <div class="modal-header">
+              <div class="modal-title col-md-10">Confirm your password.</div>
+              <button type="button" class="close col-md-2" data-dismiss="modal" aria-hidden="true">&times;</button>
+            </div>
+  
+            <div class="modal-body">
+  
+                <form id="retrieve_private_key_form">
+
+                    <div class="row" style="display: none;">
+                      <label class="col-sm-2">Username:</label>
+                      <div class="col-sm-10">
+                        <input type="text" name="username" id="username" rows="2" class="form-control" >
+              
+                      </div>
+                    </div>
+              
+                    <div class="row">
+                      <label class="col-sm-2">Password:</label>
+                      <div class="col-sm-10">
+                        <input type="password" name="password" id="password" rows="1" class="form-control" >
+              
+                      </div>
+                    </div>
+                </form>
+
+                <br>
+
+                <div class="container">
+
+                    <div class="row">
+                      <label class="col-sm-2">Public Key:</label>
+                      <div class="col-sm-10">
+                        <textarea id="public_key_modal" rows="2" class="form-control" readonly></textarea>
+                      </div>
+                    </div>
+            
+                    <br>
+                    
+                    <div class="row">
+                      <label class="col-sm-2">Private Key:</label>
+                      <div class="col-sm-10">
+                        <textarea id="private_key_modal" rows="2" class="form-control" readonly></textarea>
+                      </div>
+                    </div>
+            
+                    <br>
+            
+                </div>
+
+            </div>
+  
+            <div class="modal-footer">
+              <button type="button" id="button_show_keys" class="btn btn-success">Show keys</button>
+            </div>
+  
+          </div>
+  
+        </div>
+      </div>
 
     <div class="container">
 
@@ -77,7 +145,7 @@
           </div>
         </div>
 
-        <br>
+        <!--<br>
         
         <div class="row">
           <label class="col-sm-2">Private Key:</label>
@@ -85,7 +153,6 @@
             <textarea id="private_key" rows="5" class="form-control" readonly></textarea>
           </div>
         </div>
-
         <br>
 
         <div class="row" id="warning" style="display:none">
@@ -93,13 +160,14 @@
             <div class="alert alert-danger" role="alert">
               IMPORTANT
               <ul>
-                <li>Save you private and public keys. These keys cannot be recovered!</li>
+                <li>Save you private and public keys. </li>
                 <li>Don't share your private key with anyone!</li>
               </ul> 
             </div>
           </div>
         </div>
 
+        -->
     </div>
 
 
@@ -113,23 +181,66 @@
 
     <script>
 
-      $(function(){
-        $('input').click(function(){
+          $(function () {
+          $("#button_show_keys").click(function () {
 
-          $.ajax({
-            url: '/wallet/new',
-            type: 'GET',
-            success: function(response){
-              document.getElementById("private_key").innerHTML = response['private_key'];
-              document.getElementById("public_key").innerHTML = response['public_key'];
-              document.getElementById("warning").style.display = "block";
-            },
-            error: function(error){
-              console.log(error);
-            }
+            document.getElementById("username").value = readCookie("username");
+
+            $.ajax({
+              url: "/retrieve_private_key",
+              type: "POST",
+              dataType : 'json',
+              data: $('#retrieve_private_key_form').serialize(),
+              success: function(response){
+
+                var public_key = response["public_key"];
+                var private_key = response["private_key"];
+               
+                document.getElementById("public_key_modal").value = public_key;
+                document.getElementById("private_key_modal").value = private_key;
+              },
+              error: function(error){
+                console.log(error);
+              }
+            });
           });
-        });
       });
+
+      $(function () {
+          $("#view_private_keys_button").click(function () {
+              $("#basicModal").modal('show');
+          });
+      });
+
+      $(function () {
+          $("#view_public_keys_button").click(function () {
+
+            document.getElementById("username").value = readCookie("username");
+
+            $.ajax({
+              url: "/retrieve_public_key",
+              type: "POST",
+              dataType : 'json',
+              data: $('#retrieve_private_key_form').serialize(),
+              success: function(response){
+
+                var public_key = response["public_key"];
+               
+                document.getElementById("public_key").value = public_key;
+              },
+              error: function(error){
+                console.log(error);
+              }
+            });
+          });
+      });
+
+      $('#basicModal').on('hidden.bs.modal', function () {
+          document.getElementById("public_key_modal").value = "";
+          document.getElementById("private_key_modal").value = "";
+          document.getElementById("public_key").value = "";
+          document.getElementById("password").value = "";
+      })
 
       function checkCookie() {
         var user=readCookie("user_id");
@@ -137,20 +248,20 @@
           document.location.href="/";
         }
       }
-        function readCookie(name) {
-          var nameEQ = name + "=";
-          var ca = document.cookie.split(';');
-          for(var i=0;i < ca.length;i++) {
-              var c = ca[i];
-              while (c.charAt(0)==' ') {
-                  c = c.substring(1,c.length);
-              }
-              if (c.indexOf(nameEQ) == 0) {
-                  return c.substring(nameEQ.length,c.length);
-              }
-          }
-        return null;
+      function readCookie(name) {
+        var nameEQ = name + "=";
+        var ca = document.cookie.split(';');
+        for(var i=0;i < ca.length;i++) {
+            var c = ca[i];
+            while (c.charAt(0)==' ') {
+                c = c.substring(1,c.length);
+            }
+            if (c.indexOf(nameEQ) == 0) {
+                return c.substring(nameEQ.length,c.length);
+            }
         }
+      return null;
+      }
     </script>
 
 

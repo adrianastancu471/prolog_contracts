@@ -25,15 +25,19 @@ import time
 import json
 
 import binascii
+import base58
 
 import Crypto
 import Crypto.Random
 from Crypto.Hash import SHA
+from Crypto.Hash import SHA256
+from Crypto.Cipher import AES
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
 import requests
 from flask import Flask, jsonify, request, render_template
+import base64
 
 class Transaction:
 
@@ -164,6 +168,9 @@ def register_user():
 	username = request.form['username']
 	password = request.form['password']
 
+	#generez hash-ul parolei 
+	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
+
 	#verificare daca mai exista acel user
 	user_asset = bdb.assets.get(search=username)
 	idx = -1
@@ -175,14 +182,30 @@ def register_user():
 		response = {'username': '', 'account':'exists'}
 		return jsonify(response), 200
 
-	user = {'data':{'username':"",'email':"",'keypair':{'public_key':'','private_key':''}}}
+	#criptare parola si cheie privata
+	account_keypair = generate_keypair()
+	private_key_original = account_keypair.private_key
+	private_key_padded = account_keypair.private_key.encode("utf-8").rjust(48)
+	print(len(private_key_padded))
+	print(private_key_padded)
+	print(len(account_keypair.private_key))
+	print(account_keypair.private_key)
+
+	key32 = "{: <32}".format(password).encode("utf-8")
+	cipher = AES.new(key32,AES.MODE_ECB) 
+	private_key_encoded = base64.b64encode(cipher.encrypt(private_key_padded))
+	
+	#pentru decriptare cheie privata folosind parola
+	#cipher = AES.new(password,AES.MODE_ECB) 
+	#private_key_dencoded = cipher.decrypt(base64.b64decode(private_key_encoded))
+
+	user = {'data':{'username':"",'email':"",'keypair':{'public_key':''}}}
 	user['data']['username']= username
 	user['data']['email']= email
-	metadata = {'account': 'active','password':password}
+	metadata = {'account': 'active','password':password_hash,'private_key':private_key_encoded}
 
-	account_keypair = generate_keypair()
+	
 	user['data']['keypair']['public_key'] = account_keypair.public_key
-	user['data']['keypair']['private_key'] = account_keypair.private_key
 
 	prepared_creation_tx = bdb.transactions.prepare(
         operation='CREATE', 
@@ -192,7 +215,7 @@ def register_user():
 
 	fulfilled_creation_tx = bdb.transactions.fulfill(
         prepared_creation_tx, 
-        private_keys=account_keypair.private_key)
+        private_keys=private_key_original)
 
 	sent_creation_tx = bdb.transactions.send_commit(fulfilled_creation_tx)
 
@@ -206,19 +229,26 @@ def login_user():
 	username = request.form['username']
 	password = request.form['password']
 
+	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
+
 	user_asset = bdb.assets.get(search=username)
-	idx = -1
+	idx_asset = -1
+	idx_transaction =-1
 	for i, user in enumerate(user_asset):
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
-		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password:
-			idx = i
+		print(transaction)
+		if transaction is None or transaction['metadata'] is None:
+			break
+		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
+			idx_asset = i
+			idx_transaction = len(user_transaction)-1
 
-	if idx == -1:
+	if idx_asset == -1:
 		response = {'account': 'invalid'}
 		return jsonify(response), 200
 	
-	response = {'account': user_transaction[idx]['id']}
+	response = {'account': user_transaction[idx_transaction]['id']}
 
 	return jsonify(response), 200
 
@@ -230,6 +260,11 @@ def reset_password_user():
 	username = request.form['password2']
 	password = request.form['password']
 
+	current_password_hash = SHA256.new(current_password.encode('utf-8')).hexdigest()
+	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
+	current_key32 = "{: <32}".format(current_password).encode("utf-8")
+	key32 = "{: <32}".format(password).encode("utf-8")
+
 	user_asset = bdb.assets.get(search=username)
 	idx = -1
 	user_transaction=[]
@@ -237,13 +272,20 @@ def reset_password_user():
 	for i, user in enumerate(user_asset):
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
-		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== current_password:
+		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== current_password_hash:
 			idx = len(user_transaction)-1
 			asset_id = user['id']
 
 	if idx == -1:
 		response = {'username': '', 'account':'invalid'}
 		return jsonify(response), 200
+	
+	#decriptare cheie privata pentru semnare tranzactie
+	encrypted_private_key = user_transaction[idx]['metadata']['private_key']
+	cipher_old = AES.new(current_key32,AES.MODE_ECB) 
+	private_key_decoded = cipher_old.decrypt(base64.b64decode(encrypted_private_key))
+	cipher_new = AES.new(key32,AES.MODE_ECB) 
+	private_key_encoded = base64.b64encode(cipher_new.encrypt(private_key_decoded))
 
 	txid = user_transaction[idx]["id"]
 	creation_tx = bdb.transactions.retrieve(txid)
@@ -253,7 +295,8 @@ def reset_password_user():
 	}
 	metadata = {
 		'account': 'active',
-		'password':password
+		'password':password_hash,
+		'private_key':private_key_encoded
 	}
 
 	output = creation_tx['outputs'][0]
@@ -277,11 +320,71 @@ def reset_password_user():
 
 	fulfilled_transfer_tx = bdb.transactions.fulfill(
 		prepared_transfer_tx,
-		private_keys=user['data']['keypair']['private_key'],
+		private_keys=private_key_decoded.strip(),
 	)
 	bdb.transactions.send_commit(fulfilled_transfer_tx)
 	
 	response = {'username': username,'account':'active'}
+
+	return jsonify(response), 200
+
+#Printare chei
+@app.route('/retrieve_private_key', methods=['POST'])
+def retrieve_private_key():
+	username = request.form['username']
+	password = request.form['password']
+
+	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
+
+	user_asset = bdb.assets.get(search=username)
+	idx_asset = -1
+	idx_transaction = -1
+	for i, user in enumerate(user_asset):
+		user_transaction = bdb.transactions.get(asset_id=user["id"])
+		transaction = user_transaction[len(user_transaction)-1]
+		if transaction is None or transaction['metadata'] is None:
+			break
+		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
+			idx_asset = i
+			idx_transaction = len(user_transaction)-1
+
+	if idx_asset == -1:
+		response = {'account': 'invalid'}
+		return jsonify(response), 200
+
+	public_key = user_asset[idx_asset]['data']['keypair']['public_key']
+
+	key32 = "{: <32}".format(password).encode("utf-8")
+	encrypted_private_key = user_transaction[idx_transaction]['metadata']['private_key']
+	cipher_old = AES.new(key32,AES.MODE_ECB) 
+	private_key = cipher_old.decrypt(base64.b64decode(encrypted_private_key)).strip()
+
+	response = {'public_key': public_key ,'private_key':private_key}
+
+	return jsonify(response), 200
+
+#Printare chei
+@app.route('/retrieve_public_key', methods=['POST'])
+def retrieve_public_key():
+	username = request.form['username']
+
+	user_asset = bdb.assets.get(search=username)
+	idx_asset = -1
+	for i, user in enumerate(user_asset):
+		user_transaction = bdb.transactions.get(asset_id=user["id"])
+		transaction = user_transaction[len(user_transaction)-1]
+		if transaction is None or transaction['metadata'] is None:
+			break
+		if transaction['metadata']['account'] == 'active':
+			idx_asset = i
+
+	if idx_asset == -1:
+		response = {'account': 'invalid'}
+		return jsonify(response), 200
+
+	public_key = user_asset[idx_asset]['data']['keypair']['public_key']
+
+	response = {'public_key': public_key }
 
 	return jsonify(response), 200
 
