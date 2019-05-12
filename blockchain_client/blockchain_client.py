@@ -35,6 +35,7 @@ from Crypto.Cipher import AES
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
+import datetime
 import requests
 from flask import Flask, jsonify, request, render_template
 import base64
@@ -101,29 +102,140 @@ def register():
 def reset_password():
     return render_template('./reset_password.html')
 
-@app.route('/wallet/new', methods=['GET'])
-def new_wallet():
-	random_gen = Crypto.Random.new().read
-	private_key = RSA.generate(1024, random_gen)
-	public_key = private_key.publickey()
-	response = {
-		'private_key': binascii.hexlify(private_key.exportKey(format='DER')).decode('ascii'),
-		'public_key': binascii.hexlify(public_key.exportKey(format='DER')).decode('ascii')
-	}
+@app.route('/generate/license', methods=['POST'])
+def generate_license():
+	
+	contract = request.form['contract']
+	password = request.form['password']
+	username = request.form['username']
+	product_name = request.form['product_name']
+	duration = int(request.form['duration'])
+
+	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
+	key32 = "{: <32}".format(password).encode("utf-8")
+
+	user_asset = bdb.assets.get(search=username)
+	idx = -1
+	user_transaction=[]
+	user_idx = -1
+	for i,user in enumerate(user_asset):
+		user_transaction = bdb.transactions.get(asset_id=user["id"])
+		transaction = user_transaction[len(user_transaction)-1]
+		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
+			idx = len(user_transaction)-1
+			user_idx = i
+
+	if idx == -1:
+		response = {'account':'invalid'}
+		return jsonify(response), 200
+	
+	encrypted_private_key = user_transaction[idx]['metadata']['private_key']
+	cipher = AES.new(key32,AES.MODE_ECB) 
+	private_key = cipher.decrypt(base64.b64decode(encrypted_private_key))
+
+	duration = datetime.datetime.now() + datetime.timedelta(days=duration)
+
+	license_body = {'data':{'type':'evaluation','product':product_name, 
+			'valid_from': datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), 
+			'valid_to' : duration.strftime("%Y-%m-%d %H:%M"),
+			'contract': contract}}
+
+	owner_public_key = user_asset[user_idx]['data']['keypair']['public_key']
+
+
+	prepared_creation_tx = bdb.transactions.prepare(
+        operation='CREATE', 
+        signers=owner_public_key, 
+        asset=license_body, )
+
+	fulfilled_creation_tx = bdb.transactions.fulfill(
+        prepared_creation_tx, 
+        private_keys=private_key.strip())
+
+	bdb.transactions.send_commit(fulfilled_creation_tx)
+
+	print(fulfilled_creation_tx['id'])
+
+	response = {'license_id': fulfilled_creation_tx['id'] }
 
 	return jsonify(response), 200
 
-@app.route('/generate/transaction', methods=['POST'])
-def generate_transaction():
+@app.route('/transfer/license', methods=['POST'])
+def transfer_license():
 	
-	sender_address = request.form['sender_address']
-	sender_private_key = request.form['sender_private_key']
-	recipient_address = request.form['recipient_address']
-	value = request.form['amount']
+	password = request.form['transfer_password']
+	username = request.form['transfer_username']
+	license_id = request.form['transfer_license_id']
+	recipient = request.form['transfer_recipient_address']
+	transfer_transaction_id = request.form['transfer_transaction_id']
 
-	transaction = Transaction(sender_address, sender_private_key, recipient_address, value)
+	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
+	key32 = "{: <32}".format(password).encode("utf-8")
 
-	response = {'transaction': transaction.to_dict(), 'signature': transaction.sign_transaction()}
+	user_asset = bdb.assets.get(search=username)
+	idx = -1
+	user_transaction=[]
+	for i,user in enumerate(user_asset):
+		user_transaction = bdb.transactions.get(asset_id=user["id"])
+		transaction = user_transaction[len(user_transaction)-1]
+		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
+			idx = len(user_transaction)-1
+			user_idx = i
+
+	if idx == -1:
+		response = {'account':'invalid'}
+		return jsonify(response), 200
+	
+	encrypted_private_key = user_transaction[idx]['metadata']['private_key']
+	cipher = AES.new(key32,AES.MODE_ECB) 
+	private_key = cipher.decrypt(base64.b64decode(encrypted_private_key))
+
+	owner_public_key = user_asset[user_idx]['data']['keypair']['public_key']
+
+	transfer_asset = {
+		'id': license_id
+	}
+
+	transfer_tx = bdb.transactions.retrieve(transfer_transaction_id)
+	creation_tx = bdb.transactions.retrieve(license_id)
+	print('CREATION TX')
+	print(creation_tx)
+
+	output = transfer_tx['outputs'][0]
+
+	transfer_input = {
+		'fulfillment': output['condition']['details'],
+		'fulfills': {
+			'output_index': 0,
+			'transaction_id': transfer_tx['id'],
+		},
+		'owners_before': output['public_keys'],
+	}
+
+	prepared_transfer_tx = bdb.transactions.prepare(
+		operation='TRANSFER',
+		asset=transfer_asset,
+		inputs=transfer_input,
+		recipients=recipient,
+	)
+
+	print("PREPARED TX")
+	print(prepared_transfer_tx)
+	print(prepared_transfer_tx['outputs'][0]['public_keys'][0])
+
+	fulfilled_transfer_tx = bdb.transactions.fulfill(
+		prepared_transfer_tx,
+		private_keys=private_key.strip(),
+	)
+
+	print("SIGNED TX")
+	print(fulfilled_transfer_tx)
+
+	bdb.transactions.send_commit(fulfilled_transfer_tx)
+
+	response = {'license_id': fulfilled_transfer_tx['id'],
+		'contract': creation_tx['asset']['data']['contract'], 
+		'transfered_product_name': creation_tx['asset']['data']['product'] }
 
 	return jsonify(response), 200
 
@@ -194,10 +306,6 @@ def register_user():
 	key32 = "{: <32}".format(password).encode("utf-8")
 	cipher = AES.new(key32,AES.MODE_ECB) 
 	private_key_encoded = base64.b64encode(cipher.encrypt(private_key_padded))
-	
-	#pentru decriptare cheie privata folosind parola
-	#cipher = AES.new(password,AES.MODE_ECB) 
-	#private_key_dencoded = cipher.decrypt(base64.b64decode(private_key_encoded))
 
 	user = {'data':{'username':"",'email':"",'keypair':{'public_key':''}}}
 	user['data']['username']= username
@@ -275,6 +383,7 @@ def reset_password_user():
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== current_password_hash:
 			idx = len(user_transaction)-1
 			asset_id = user['id']
+			break
 
 	if idx == -1:
 		response = {'username': '', 'account':'invalid'}
