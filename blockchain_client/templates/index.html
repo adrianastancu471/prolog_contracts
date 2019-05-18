@@ -28,18 +28,27 @@
         <div class="collapse navbar-collapse" id="navbarResponsive">
           <ul class="navbar-nav ml-auto">
             <li class="nav-item active">
-              <a class="nav-link" href="/index">Wallet Generator
+              <a class="nav-link" href="/index">My Wallet
                 <span class="sr-only">(current)</span>
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="/make/transaction">Make Transaction</a>
+              <a class="nav-link" href="/make/transaction">Generate License</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/transfer/transaction">Transfer License</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="/view/transactions">View Transactions</a>
             </li>  
-            <li class="nav-item">
-              <a class="nav-link" href="/">Log out</a>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Account
+              </a>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="/reset_password">Reset password</a>
+                <a class="dropdown-item" href="/">Log out</a>
+              </div>
             </li>
           </ul>
         </div>

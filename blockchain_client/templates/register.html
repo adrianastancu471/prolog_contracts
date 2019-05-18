@@ -94,7 +94,7 @@
           </div>
 
           <div class="modal-footer">
-            <button type="button" id="button_cancel"class="btn btn-danger"> <a href="/">Cancel </a></button>
+            <button type="button" id="button_cancel" class="btn btn-danger" onclick="goBack()"> Cancel </button>
             <button type="button" id="button_register" class="btn btn-success">Register</button>
           </div>
 
@@ -149,6 +149,9 @@
           });
       });
 
+      function goBack() {
+         window.history.back();
+      }
     </script>
 
 

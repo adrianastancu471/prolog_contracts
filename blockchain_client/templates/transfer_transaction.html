@@ -33,10 +33,10 @@
             </li>
             <li class="nav-item">
               <a class="nav-link" href="/make/transaction">Generate License</a>
-              <span class="sr-only">(current)</span>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="/transfer/transaction">Transfer License</a>
+              <span class="sr-only">(current)</span>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="/view/transactions">View Transactions</a>
@@ -61,7 +61,7 @@
         <div class="col-lg-12">
 
           <div class="card-body">
-            <h4 class="card-title">Create a license</h4>
+            <h4 class="card-title">Transfer a license</h4>
             <p class="card-text">Enter the required details</p>
           </div>
 
@@ -73,58 +73,47 @@
 
 
     <div class="container alert alert-secondary">
-    <form id="generate_license_form">
+    <form id="transfer_license_form">
 
       <div class="row" style="display: none;">
         <label class="col-sm-2">Username:</label>
         <div class="col-sm-10">
-          <input type="text" name="username" id="username" rows="2" class="form-control" >
+          <input type="text" name="transfer_username" id="transfer_username" rows="2" class="form-control" >
 
         </div>
       </div>
 
         <div class="row">
-          <label class="col-sm-2">Product Name:</label>
+          <label class="col-sm-2">License ID:</label>
           <div class="col-sm-10">
-            <input type="text" name="product_name" id="product_name" rows="2" class="form-control">
+            <input type="text" name="transfer_license_id" id="transfer_license_id" rows="2" class="form-control">
           </div>
         </div>
 
         <br>
-        <div class="row">
-            <label class="col-sm-2">Duration:</label>
-            <div class="col-sm-10">
-              <input type="number" name="duration" id="duration" rows="2" class="form-control">
-            </div>
-          </div>
-
-        <br>
         
         <div class="row">
-          <label class="col-sm-2">Valid countries (separated by comma):</label>
+          <label class="col-sm-2">Recipient</label>
           <div class="col-sm-10">
-            <input type="text" name="valid_countries" id="valid_countries" rows="15" class="form-control">
+            <input type="text" name="transfer_recipient_address" id="transfer_recipient_address" rows="15" class="form-control">
           </div>
         </div>
 
-        <br>         
+        <br>    
         
         <div class="row">
-          <label class="col-sm-2">License type: </label>
+          <label class="col-sm-2">Transfer/Create transaction: </label>
           <div class="col-sm-10">
-            <select name="license_type" id="license_type">
-              <option value="evaluation">Evaluation</option>
-              <option value="full">Full</option>
-            </select>
+            <input type="text" name="transfer_transaction_id" id="transfer_transaction_id" rows="15" class="form-control">
           </div>
         </div>
 
-        <br>         
+        <br>  
         
         <div class="row">
           <label class="col-sm-2">Password:</label>
           <div class="col-sm-10">
-            <input type="password" name="password" id="password" rows="2" class="form-control" >
+            <input type="password" name="transfer_password" id="transfer_password" rows="2" class="form-control" >
           </div>
         </div>
 
@@ -132,7 +121,7 @@
         
         <div class="row">
           <div class="col-lg-12 text-center">
-            <input type="button" id="generate_license" class="btn btn-primary btn-lg" value="Generate License">
+            <input type="button" id="transfer_license" class="btn btn-primary btn-lg" value="Transfer License">
           </div>
         </div>
 
@@ -142,68 +131,61 @@
     </div>
 
     <!-- Modal -->
-    <div class="modal modal-alert fade" id="basicModalGenerate" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
-      <div class="modal-dialog">
-
-        <div class="modal-content">
-
-          <div class="modal-header">
-            <div class="modal-title col-md-10">Your license has been registered!</div>
-            <button type="button" class="close col-md-2" data-dismiss="modal" aria-hidden="true">&times;</button>
-          </div>
-
-          <div class="modal-body">
-
-            <form id="confirmation_generate_license_form">
-
-                <div class="row">
-                    <label class="col-sm-12">Product Name:</label>
+    <div class="modal modal-alert fade" id="basicModalTransfer" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
+        <div class="modal-dialog">
+  
+          <div class="modal-content">
+  
+            <div class="modal-header">
+              <div class="modal-title col-md-10">Your license has been transfered!</div>
+              <button type="button" class="close col-md-2" data-dismiss="modal" aria-hidden="true">&times;</button>
+            </div>
+  
+            <div class="modal-body">
+  
+              <form id="confirmation_generate_license_form">
+  
+                  <div class="row">
+                      <label class="col-sm-12">Product Name:</label>
+                      <div class="col-sm-12">
+                        <input type="text" name="confirmation_transfer_product_name" id="confirmation_transfer_product_name" rows="5" class="form-control" readonly>
+                      </div>
+                    </div>
+  
+                  <div class="row">
+                    <label class="col-sm-12">Contract:</label>
                     <div class="col-sm-12">
-                      <input type="text" name="confirmation_product_name" id="confirmation_product_name" rows="5" class="form-control" readonly>
+                      <input type="text" name="confirmation_transfer_contract" id="confirmation_transfer_contract" rows="5" class="form-control" readonly>
                     </div>
                   </div>
-
-                <div class="row">
-                  <label class="col-sm-12">License type:</label>
-                  <div class="col-sm-12">
-                    <input type="text" name="confirmation_license_type" id="confirmation_license_type" rows="5" class="form-control" readonly>
+  
+                  <div class="row">
+                    <label class="col-sm-12">License ID:</label>
+                    <div class="col-sm-12">
+                      <input type="text" name="confirmation_transfer_license_id" id="confirmation_transfer_license_id" rows="5" class="form-control" readonly>
+                    </div>
                   </div>
+  
+              </form>
+  
+  
+              <div class="row">
+                <label class="col-sm-12">Blockchain Node URL:</label>
+                <div class="col-sm-12">
+                  <input type="text" name="node_url" id="node_url" rows="2" class="form-control" value="http://127.0.0.1:5000">
                 </div>
-
-                <div class="row">
-                  <label class="col-sm-12">License ID:</label>
-                  <div class="col-sm-12">
-                    <input type="text" name="license_id" id="license_id" rows="5" class="form-control" readonly>
-                  </div>
-                </div>
-
-                <div class="row">
-                  <label class="col-sm-12">Contract:</label>
-                  <div class="col-sm-10">
-                    <input type="text" name="confirmation_contract" id="confirmation_contract" rows="5" class="form-control" readonly>
-                  </div>
-                </div>
-
-            </form>
-
-
-            <div class="row">
-              <label class="col-sm-12">Blockchain Node URL:</label>
-              <div class="col-sm-12">
-                <input type="text" name="node_url" id="node_url" rows="2" class="form-control" value="http://127.0.0.1:5000">
               </div>
+  
             </div>
-
+  
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success" data-dismiss="modal">Ok</button>
+            </div>
+  
           </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn btn-success" data-dismiss="modal">Ok</button>
-          </div>
-
+  
         </div>
-
       </div>
-    </div>
 
     <!-- Alert Message for successful transaction -->
     <div class="modal modal-alert fade" id="success_transaction_modal" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
@@ -237,29 +219,29 @@
 
 
     <script>
-
+  
       $(function () {
-          $("#generate_license").click(function () {
+          $("#transfer_license").click(function () {
 
-            document.getElementById("username").value = readCookie("username");
+            document.getElementById("transfer_username").value = readCookie("username");
 
             $.ajax({
-              url: "/generate/license",
+              url: "/transfer/license",
               type: "POST",
               dataType : 'json',
-              data: $('#generate_license_form').serialize(),
+              data: $('#transfer_license_form').serialize(),
               success: function(response){
 
-                document.getElementById("license_id").value = response["license_id"];
-                document.getElementById("confirmation_license_type").value = document.getElementById("license_type").value;
-                document.getElementById("confirmation_product_name").value = document.getElementById("product_name").value;
-                document.getElementById("confirmation_contract").value = response["contract"];
+                document.getElementById("confirmation_transfer_license_id").value = response["license_id"];
+                document.getElementById("confirmation_transfer_contract").value = response["contract"];
+                document.getElementById("confirmation_transfer_product_name").value = response["transfered_product_name"];
 
-                document.getElementById("product_name").value = "";
-                document.getElementById("password").value = "";
-                document.getElementById("duration").value = 0;
+                document.getElementById("transfer_license_id").value = "";
+                document.getElementById("transfer_recipient_address").value = "";
+                document.getElementById("transfer_password").value = "";
+                document.getElementById("transfer_transaction_id").value ="";
 
-                $("#basicModalGenerate").modal('show');
+                $("#basicModalTransfer").modal('show');
                 
               },
               error: function(error){
