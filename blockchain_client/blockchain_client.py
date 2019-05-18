@@ -69,6 +69,7 @@ class Transaction:
 app = Flask(__name__)
 start_contract_event = multiprocessing.Event()
 queue_in = multiprocessing.Queue()
+queue_in_query = multiprocessing.Queue()
 queue_out = multiprocessing.Queue()
 
 bdb_root_url = 'http://localhost:9984' 
@@ -102,14 +103,24 @@ def register():
 def reset_password():
     return render_template('./reset_password.html')
 
+def contract_form(license_type, valid_countries, duration):
+	contract = "transferlicenta(X,Y,T):-cantransfer(T),licentavalida(X),taravalida(Y).\n"
+	valid_countries_list = valid_countries.split(',')
+	for country in valid_countries_list:
+		contract = contract + "taravalida("+country.strip().lower()+").\n"
+	contract = contract + "licentavalida(X):- X < "+str(duration)+".\n"
+	contract = contract + "cantransfer("+license_type+").\n"
+	return contract
+
 @app.route('/generate/license', methods=['POST'])
 def generate_license():
 	
-	contract = request.form['contract']
 	password = request.form['password']
 	username = request.form['username']
 	product_name = request.form['product_name']
 	duration = int(request.form['duration'])
+	valid_countries = request.form['valid_countries']
+	license_type = request.form['license_type']
 
 	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
 	key32 = "{: <32}".format(password).encode("utf-8")
@@ -121,6 +132,10 @@ def generate_license():
 	for i,user in enumerate(user_asset):
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
+		print(transaction)
+		print(password_hash)
+		if transaction is None or 'metadata' not in transaction or transaction['metadata'] is None or 'account' not in transaction['metadata']:
+			continue
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
 			idx = len(user_transaction)-1
 			user_idx = i
@@ -134,14 +149,18 @@ def generate_license():
 	private_key = cipher.decrypt(base64.b64decode(encrypted_private_key))
 
 	duration = datetime.datetime.now() + datetime.timedelta(days=duration)
-
-	license_body = {'data':{'type':'evaluation','product':product_name, 
+	
+	epoch = datetime.datetime.utcfromtimestamp(0)
+	datetime_number = int((duration-epoch).total_seconds() *1000)
+	contract = contract_form(license_type,valid_countries,datetime_number)
+	print(contract)
+	
+	license_body = {'data':{'type':license_type,'product':product_name, 
 			'valid_from': datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), 
 			'valid_to' : duration.strftime("%Y-%m-%d %H:%M"),
 			'contract': contract}}
 
 	owner_public_key = user_asset[user_idx]['data']['keypair']['public_key']
-
 
 	prepared_creation_tx = bdb.transactions.prepare(
         operation='CREATE', 
@@ -156,9 +175,20 @@ def generate_license():
 
 	print(fulfilled_creation_tx['id'])
 
-	response = {'license_id': fulfilled_creation_tx['id'] }
+	response = {'license_id': fulfilled_creation_tx['id'], 'contract':contract }
 
 	return jsonify(response), 200
+
+def verify_contract(contract, license_type, destination_country, current_date):
+	epoch = datetime.datetime.utcfromtimestamp(0)
+	datetime_number = int((current_date-epoch).total_seconds() *1000)
+
+	queue_in.put("Contract_name.pl "+ contract)
+	queue_in_query.put("transferlicenta("+str(datetime_number)+","+destination_country+","+license_type+").")
+	start_contract_event.set()
+	
+	result  = queue_out.get()
+	return result
 
 @app.route('/transfer/license', methods=['POST'])
 def transfer_license():
@@ -175,12 +205,11 @@ def transfer_license():
 	user_asset = bdb.assets.get(search=username)
 	idx = -1
 	user_transaction=[]
-	for i,user in enumerate(user_asset):
+	for user in user_asset:
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
 			idx = len(user_transaction)-1
-			user_idx = i
 
 	if idx == -1:
 		response = {'account':'invalid'}
@@ -190,7 +219,7 @@ def transfer_license():
 	cipher = AES.new(key32,AES.MODE_ECB) 
 	private_key = cipher.decrypt(base64.b64decode(encrypted_private_key))
 
-	owner_public_key = user_asset[user_idx]['data']['keypair']['public_key']
+	#owner_public_key = user_asset[user_idx]['data']['keypair']['public_key']
 
 	transfer_asset = {
 		'id': license_id
@@ -198,8 +227,19 @@ def transfer_license():
 
 	transfer_tx = bdb.transactions.retrieve(transfer_transaction_id)
 	creation_tx = bdb.transactions.retrieve(license_id)
-	print('CREATION TX')
-	print(creation_tx)
+
+	recipient_asset = bdb.assets.get(search=recipient)[0]
+	print('RECIPIENT_ASSET')
+	print(recipient_asset)
+	#TODO CATCH DACA NU E e gasit recipient
+
+	verdict = verify_contract(
+		creation_tx['asset']['data']['contract'],
+		creation_tx['asset']['data']['type'].lower(),
+		recipient_asset['data']['country'].lower(),
+		datetime.datetime.now())
+
+	print(verdict)
 
 	output = transfer_tx['outputs'][0]
 
@@ -219,17 +259,10 @@ def transfer_license():
 		recipients=recipient,
 	)
 
-	print("PREPARED TX")
-	print(prepared_transfer_tx)
-	print(prepared_transfer_tx['outputs'][0]['public_keys'][0])
-
 	fulfilled_transfer_tx = bdb.transactions.fulfill(
 		prepared_transfer_tx,
 		private_keys=private_key.strip(),
 	)
-
-	print("SIGNED TX")
-	print(fulfilled_transfer_tx)
 
 	bdb.transactions.send_commit(fulfilled_transfer_tx)
 
@@ -239,27 +272,7 @@ def transfer_license():
 
 	return jsonify(response), 200
 
-@app.route('/generate/contract', methods=['POST'])
-def generate_contract():
-	
-	sender_address = request.form['sender_address']
-	sender_private_key = request.form['sender_private_key']
-	body = request.form['contract_body']
-    #TODO parsare date contract + nume contract
-    #contract_address = request.form['contract_address']
-	#queue_in.put("Contract_name "+ body)
-	
-	body2 = "pereche_chei(pk_1,priv_1)."
-	queue_in.put("Contract_name.pl "+body2)
-	start_contract_event.set()
-	
-	print(queue_out.get())
-	response = {'contract': {'sender_address':sender_address, 'private_key':sender_private_key,'body':body}, 'signature': 'semnatura'}
-    
-	return jsonify(response), 200
-
-
-def create_contract_prolog(e,q_in,q_out):
+def create_contract_prolog(e,q_in,q_in_query,q_out):
     print('Process create contract: starting...')
     while(1):
         e.wait()
@@ -269,8 +282,15 @@ def create_contract_prolog(e,q_in,q_out):
             fo.write(body)
         prolog = Prolog()
         prolog.consult(contract_name)
-        for soln in prolog.query("pereche_chei(Y,X)"):
-            q_out.put(soln["X"] + " este cheia privata a" + soln["Y"])
+        query = q_in_query.get()
+        print(query)
+        
+        raspuns = bool(list(prolog.query(query)))
+        print(raspuns)
+        q_out.put(raspuns)
+		#for soln in prolog.query(query):
+        #    print(soln)
+        #    q_out.put(soln["X"] + soln["Y"] + soln["T"])
 
 #User Register
 @app.route('/register/user', methods=['POST'])
@@ -279,14 +299,21 @@ def register_user():
 	email = request.form['email']
 	username = request.form['username']
 	password = request.form['password']
+	country = request.form['country']
 
 	#generez hash-ul parolei 
 	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
 
+	print("asset getbefore")
 	#verificare daca mai exista acel user
 	user_asset = bdb.assets.get(search=username)
+	print("asset get")
 	idx = -1
+	print(len(user_asset))
 	for i, user in enumerate(user_asset):
+		print(user)
+		if 'username' not in user['data']:
+			continue
 		if user['data']['username']== username :
 			idx = i
 
@@ -307,25 +334,29 @@ def register_user():
 	cipher = AES.new(key32,AES.MODE_ECB) 
 	private_key_encoded = base64.b64encode(cipher.encrypt(private_key_padded))
 
-	user = {'data':{'username':"",'email':"",'keypair':{'public_key':''}}}
+	user = {'data':{'username':"",'email':"",'country':"",'keypair':{'public_key':''}}}
 	user['data']['username']= username
 	user['data']['email']= email
+	user['data']['country']= country
 	metadata = {'account': 'active','password':password_hash,'private_key':private_key_encoded}
 
 	
 	user['data']['keypair']['public_key'] = account_keypair.public_key
 
+	print("prepare")
 	prepared_creation_tx = bdb.transactions.prepare(
         operation='CREATE', 
         signers=account_keypair.public_key, 
         asset=user, 
 		metadata=metadata,)
-
+		
+	print("fulfull")
 	fulfilled_creation_tx = bdb.transactions.fulfill(
         prepared_creation_tx, 
         private_keys=private_key_original)
 
-	sent_creation_tx = bdb.transactions.send_commit(fulfilled_creation_tx)
+	print("commit")
+	bdb.transactions.send_commit(fulfilled_creation_tx)
 
 	response = {'username': username,'account':'created'}
 
@@ -342,12 +373,16 @@ def login_user():
 	user_asset = bdb.assets.get(search=username)
 	idx_asset = -1
 	idx_transaction =-1
+
 	for i, user in enumerate(user_asset):
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
-		print(transaction)
-		if transaction is None or transaction['metadata'] is None:
-			break
+		if transaction is None:
+			continue
+		if 'metadata' not in transaction:
+			continue
+		if transaction['metadata'] is None or 'account' not in transaction['metadata']:
+			continue
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
 			idx_asset = i
 			idx_transaction = len(user_transaction)-1
@@ -377,7 +412,7 @@ def reset_password_user():
 	idx = -1
 	user_transaction=[]
 	asset_id = ""
-	for i, user in enumerate(user_asset):
+	for user in user_asset:
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== current_password_hash:
@@ -507,7 +542,7 @@ if __name__ == '__main__':
     
     process_create_contract = multiprocessing.Process(name='create_contract', 
                       target=create_contract_prolog,
-                      args=(start_contract_event,queue_in,queue_out))
+                      args=(start_contract_event,queue_in,queue_in_query,queue_out))
     process_create_contract.start()
 
     app.run(host='127.0.0.1', port=port)

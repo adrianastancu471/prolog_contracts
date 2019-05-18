@@ -37,10 +37,7 @@
             </li>
             <li class="nav-item">
               <a class="nav-link" href="/view/transactions">View Transactions</a>
-            </li>                      
-            <li class="nav-item">
-              <a class="nav-link" href="/make/contract">Make Contract</a>
-            </li>
+            </li>  
             <li class="nav-item">
               <a class="nav-link" href="/">Log out</a>
             </li>
@@ -95,9 +92,21 @@
         <br>
         
         <div class="row">
-          <label class="col-sm-2">Contract</label>
+          <label class="col-sm-2">Valid countries (separated by comma):</label>
           <div class="col-sm-10">
-            <input type="text" name="contract" id="contract" rows="15" class="form-control">
+            <input type="text" name="valid_countries" id="valid_countries" rows="15" class="form-control">
+          </div>
+        </div>
+
+        <br>         
+        
+        <div class="row">
+          <label class="col-sm-2">License type: </label>
+          <div class="col-sm-10">
+            <select name="license_type" id="license_type">
+              <option value="evaluation">Evaluation</option>
+              <option value="full">Full</option>
+            </select>
           </div>
         </div>
 
@@ -204,9 +213,9 @@
                   </div>
 
                 <div class="row">
-                  <label class="col-sm-12">Contract:</label>
+                  <label class="col-sm-12">License type:</label>
                   <div class="col-sm-12">
-                    <input type="text" name="confirmation_contract" id="confirmation_contract" rows="5" class="form-control" readonly>
+                    <input type="text" name="confirmation_license_type" id="confirmation_license_type" rows="5" class="form-control" readonly>
                   </div>
                 </div>
 
@@ -214,6 +223,13 @@
                   <label class="col-sm-12">License ID:</label>
                   <div class="col-sm-12">
                     <input type="text" name="license_id" id="license_id" rows="5" class="form-control" readonly>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <label class="col-sm-12">Contract:</label>
+                  <div class="col-sm-10">
+                    <input type="text" name="confirmation_contract" id="confirmation_contract" rows="5" class="form-control" readonly>
                   </div>
                 </div>
 
@@ -341,12 +357,11 @@
               success: function(response){
 
                 document.getElementById("license_id").value = response["license_id"];
-                document.getElementById("confirmation_contract").value = document.getElementById("contract").value;
+                document.getElementById("confirmation_license_type").value = document.getElementById("license_type").value;
                 document.getElementById("confirmation_product_name").value = document.getElementById("product_name").value;
+                document.getElementById("confirmation_contract").value = response["contract"];
 
-                document.getElementById("contract").value = "";
                 document.getElementById("product_name").value = "";
-                document.getElementById("contract").value = "";
                 document.getElementById("password").value = "";
                 document.getElementById("duration").value = 0;
 

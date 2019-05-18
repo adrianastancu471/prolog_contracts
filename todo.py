@@ -1,26 +1,19 @@
 \MUST
-#1. server bigchain de verificat ca porneste mereu
-#2. functia de logare sa functioneze + register 
-#1. adaugat parola si stocat hash (inregistrare cu ID + parola)
-2. adaugat functie de printare a cheilor secrete si publica
-1. adaugare detalii cont in baza de date
-2. legatura cu rezultatul minat de facut create in baza de date
-2. stocate separat contractele in prolog
+#bugs
+1. gardare formuri campuri goale
+1. caz in care license mistmatch sau user mistmatch print error
 
-6. definirea structurii unui contract in prolog si in python
-5. legaturi cu trigger care sa cheme contractele
+#features
+4. verificare contract inainte de transfer
+3. print pagina separata cu licente active ale unui user
+6. separat codul client de server
 5. apelare in paralel a contractelor 
-6. facut zone critice
-4. la tranzactie -> verifica cont curent daca are contracte link-uite -> verifica daca contractele se executa -> executale
-
-10. Paxos sau ceva de implementat un protocol de consens
+7. mecanism de mining inainte de transferul si generarea licentelor
 
 \prefer
-12. modificat mecanismul de inlantuire de adauga informatii despre cont, tranzactii anterioare si transfer in contul curent
+2. de adaugat reset_password buton in interfata
+10. catch transfer interzis si inlocuit cu transfer catre producator
 
 \optional
-3. la transfer posibilitatea de a salva contacte (chei publice)
-24. contracte de licenta software, adaugat lista cu chei de licenta, la cumparare imi este validata o cheie si la pornirea 
-softului face get de cheie -> serverul verifica credentialele si contractul de vanzare al licentei ->  marcheaza in uz acea 
-licenta de catre userul care s-a autentificat ??
+3. la transfer posibilitatea de a salva contactele (cheile lor publice)
 3. remember password cu mail
