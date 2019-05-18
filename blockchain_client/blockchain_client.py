@@ -91,6 +91,10 @@ def make_transaction():
 def transfer_transaction():
     return render_template('./transfer_transaction.html')
 
+@app.route('/view/licenses')
+def view_licenses():
+    return render_template('./view_licenses.html')
+
 @app.route('/view/transactions')
 def view_transaction():
     return render_template('./view_transactions.html')
@@ -136,8 +140,6 @@ def generate_license():
 	for i,user in enumerate(user_asset):
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
-		print(transaction)
-		print(password_hash)
 		if transaction is None or 'metadata' not in transaction or transaction['metadata'] is None or 'account' not in transaction['metadata']:
 			continue
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
@@ -176,8 +178,6 @@ def generate_license():
         private_keys=private_key.strip())
 
 	bdb.transactions.send_commit(fulfilled_creation_tx)
-
-	print(fulfilled_creation_tx['id'])
 
 	response = {'license_id': fulfilled_creation_tx['id'], 'contract':contract }
 
@@ -290,11 +290,7 @@ def create_contract_prolog(e,q_in,q_in_query,q_out):
         print(query)
         
         raspuns = bool(list(prolog.query(query)))
-        print(raspuns)
         q_out.put(raspuns)
-		#for soln in prolog.query(query):
-        #    print(soln)
-        #    q_out.put(soln["X"] + soln["Y"] + soln["T"])
 
 #User Register
 @app.route('/register/user', methods=['POST'])
@@ -533,6 +529,43 @@ def retrieve_public_key():
 	public_key = user_asset[idx_asset]['data']['keypair']['public_key']
 
 	response = {'public_key': public_key }
+
+	return jsonify(response), 200
+
+#Printare licente
+@app.route('/retrieve_licenses', methods=['POST'])
+def retrieve_licenses():
+	username = request.form['username']
+
+	users_public_key = bdb.assets.get(search=username)[0]['data']['keypair']['public_key']
+	print(users_public_key)
+
+	full_license_assets = bdb.assets.get(search="full")
+	evaluation_license_assets = bdb.assets.get(search="evaluation")
+	full_licenses =[]
+	evaluation_licenses =[]
+	for license in full_license_assets:
+		license_transactions = bdb.transactions.get(asset_id=license['id'])
+		if license_transactions[-1]['outputs'][0]['condition']['details']['public_key'] == users_public_key :
+			license_object = {
+				'product': license['data']['product'],
+				'valid_from': license['data']['valid_from'],
+				'valid_to': license['data']['valid_to'],
+				'contract': license['data']['contract'],
+				'transfer_key': license_transactions[-1]['id']}
+			full_licenses.append(license_object)
+	for license in evaluation_license_assets:
+		license_transactions = bdb.transactions.get(asset_id=license['id'])
+		if license_transactions[-1]['outputs'][0]['condition']['details']['public_key'] == users_public_key :
+			license_object = {
+				'product': license['data']['product'],
+				'valid_from': license['data']['valid_from'],
+				'valid_to': license['data']['valid_to'],
+				'contract': license['data']['contract'],
+				'transfer_key': license_transactions[-1]['id']}
+			evaluation_licenses.append(license_object)
+		
+	response = {'full_licenses': full_licenses, 'evaluation_licenses': evaluation_licenses}
 
 	return jsonify(response), 200
 

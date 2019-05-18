@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Blockchain Client</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="/static/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/DataTables/css/datatables.min.css" rel="stylesheet">
+    <link href="/static/css/custom.css" rel="stylesheet">
+
+  </head>
+
+  <body onload="loadLicenses()">
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+      <div class="container">
+        <a class="navbar-brand" href="#">Blockchain Client</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarResponsive">
+          <ul class="navbar-nav ml-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="/index">My Wallet
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/make/transaction">Generate License</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/transfer/transaction">Transfer License</a>
+            </li>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/view/licenses">View Licenses</a>
+              <span class="sr-only">(current)</span>
+            </li>  
+            <li class="nav-item">
+              <a class="nav-link" href="/view/transactions">View Transactions</a>
+            </li>  
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Account
+              </a>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="/reset_password">Reset password</a>
+                <a class="dropdown-item" href="/">Log out</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <br>
+
+    <div style="display: none;">
+    <form id="user_form">
+
+        <div class="row">
+          <label class="col-sm-12">Username:</label>
+          <div class="col-sm-12">
+            <input type="text" name="username" id="username" rows="2" class="form-control" >
+
+          </div>
+        </div>
+      
+    </form>
+    </div>
+
+    <br>
+    <!-- Blockchain Licenses Table -->
+    <div class="container">
+      <table id="licenses_table" class="table table-striped table-bordered" cellspacing="0" width="100%">
+      </table>
+    </div>
+
+
+    <!-- Bootstrap core JavaScript -->
+    <script src="/static/vendor/jquery/jquery.min.js"></script>
+    <script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="/static/vendor/DataTables/js/datatables.min.js"></script>
+    <script src="/static/vendor/DataTables/js/ellipsis.js"></script>
+
+
+    <script>
+      function format ( d ) {
+          // `d` is the original data object for the row
+          return '<table cellpadding="10" cellspacing="0" border="0" style="padding-left:50px;">'+
+              '<tr>'+
+                  '<td>Key:</td>'+
+                  '<td>'+d.transfer_key+'</td>'+
+              '</tr>'+
+                  '<td>Contract:</td>'+
+                  '<td>'+d.contract+'</td>'+
+              '</tr>'+
+          '</table>';
+      }
+
+      function loadLicenses() {
+        var user=readCookie("user_id");
+        if (user === null) {
+          document.location.href="/";
+          return;
+        }
+
+        document.getElementById("username").value = user;
+
+        $.ajax({
+            url: "/retrieve_licenses",
+            type: 'POST',
+            dataType : 'json',
+            data: $('#user_form').serialize(),
+            success: function(response){
+
+              console.log(response);
+              //Generate Licenses Table
+              var licenses = [];
+              count = 1;
+
+              for (i = 0; i < response['full_licenses'].length; i++) { 
+
+                //format date 
+                //var options = {  year: "numeric", month: "short",  day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit"  };
+                //var date = new Date(response["timestamp"] * 1000);
+                //var formattedDateTime = date.toLocaleTimeString("en-us", options);
+
+                lic = {"icon":"", "index":count,
+                              "product":response["full_licenses"][i]['product'],
+                              "valid_from":response["full_licenses"][i]['valid_from'],
+                              "valid_to":response["full_licenses"][i]['valid_to'],
+                              "transfer_key":response["full_licenses"][i]['transfer_key'],
+                              "type":"Full",
+                              "contract":response["full_licenses"][i]['contract']};
+                licenses.push(lic);
+
+                count += 1;
+              };
+
+              for (i = 0; i < response['evaluation_licenses'].length; i++) { 
+
+                lic = {"icon":"", "index":count,
+                              "product":response["evaluation_licenses"][i]['product'],
+                              "valid_from":response["evaluation_licenses"][i]['valid_from'],
+                              "valid_to":response["evaluation_licenses"][i]['valid_to'],
+                              "transfer_key":response["evaluation_licenses"][i]['transfer_key'],
+                              "type":"Evaluation",
+                              "contract":response["full_licenses"][i]['contract']};
+                licenses.push(lic);
+
+                count += 1;
+                };
+
+                var table = $('#licenses_table').DataTable( {
+                  data: licenses,
+                  columns: [
+                           {
+                              "className":      'details-control',
+                              "orderable":      true,
+                              "data":           null,
+                              "defaultContent": ''
+                            },
+                            { title: "#",
+                            "data": "index"},
+                            { title: "Product Name",
+                            "data": "product"},
+                            { title: "Issued date",
+                            "data": "valid_from"},
+                            { title: "Valid to",
+                            "data": "valid_to"},
+                            { title: "Type",
+                            "data": "type"}],
+                  columnDefs: [ {targets: [1,2,3,4,5], render: $.fn.dataTable.render.ellipsis( 40 )}]
+                } );
+
+                $('#licenses_table tbody').on('click', 'td.details-control', function () {
+                  var tr = $(this).closest('tr');
+                  console.log(tr);
+                  var row = table.row(tr);
+                  console.log(row);
+          
+                  if ( row.child.isShown() ) {
+                      // This row is already open - close it
+                      row.child.hide();
+                      tr.removeClass('shown');
+                  }
+                  else {
+                      // Open this row
+                      row.child(format(row.data())).show();
+                      tr.addClass('shown');
+                  }
+                } );
+            },
+            error: function(error){
+              console.log(error);
+            }
+          });
+
+      }
+      
+      
+      function readCookie(name) {
+        var nameEQ = name + "=";
+        var ca = document.cookie.split(';');
+        for(var i=0;i < ca.length;i++) {
+            var c = ca[i];
+            while (c.charAt(0)==' ') {
+                c = c.substring(1,c.length);
+            }
+            if (c.indexOf(nameEQ) == 0) {
+                return c.substring(nameEQ.length,c.length);
+            }
+        }
+      return null;
+      }
+
+    </script>
+
+
+  </body>
+
+</html>
