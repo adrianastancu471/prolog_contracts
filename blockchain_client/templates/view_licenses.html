@@ -129,7 +129,10 @@
           // `d` is the original data object for the row
           return '<table cellpadding="10" cellspacing="0" border="0" style="padding-left:50px;">'+
               '<tr>'+
-                  '<td>Key:</td>'+
+                  '<td>License:</td>'+
+                  '<td>'+d.license_key+'</td>'+
+              '</tr>'+
+                  '<td>Transfer:</td>'+
                   '<td>'+d.transfer_key+'</td>'+
               '</tr>'+
                   '<td>Contract:</td>'+
@@ -177,6 +180,7 @@
                               "product":response["full_licenses"][i]['product'],
                               "valid_from":response["full_licenses"][i]['valid_from'],
                               "valid_to":response["full_licenses"][i]['valid_to'],
+                              "license_key":response["full_licenses"][i]['license_key'],
                               "transfer_key":response["full_licenses"][i]['transfer_key'],
                               "type":"Full",
                               "contract":response["full_licenses"][i]['contract']};
@@ -191,6 +195,7 @@
                               "product":response["evaluation_licenses"][i]['product'],
                               "valid_from":response["evaluation_licenses"][i]['valid_from'],
                               "valid_to":response["evaluation_licenses"][i]['valid_to'],
+                              "license_key":response["full_licenses"][i]['license_key'],
                               "transfer_key":response["evaluation_licenses"][i]['transfer_key'],
                               "type":"Evaluation",
                               "contract":response["full_licenses"][i]['contract']};

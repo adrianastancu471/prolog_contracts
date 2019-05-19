@@ -5,9 +5,9 @@
 1. change icons la view licenses
 1. gardare node url unreachable
 1. wrong password when show privatae key print message
+2. show license id and transaction id for transfer
 
 #features
-6. separat codul client de server
 5. apelare in paralel a contractelor 
 7. mecanism de mining inainte de transferul si generarea licentelor
 

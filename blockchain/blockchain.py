@@ -662,6 +662,7 @@ def retrieve_licenses():
 				'valid_from': license['data']['valid_from'],
 				'valid_to': license['data']['valid_to'],
 				'contract': license['data']['contract'],
+				'license_key' : license_transactions[0]['id'],
 				'transfer_key': license_transactions[-1]['id']}
 			full_licenses.append(license_object)
 	for license in evaluation_license_assets:
@@ -672,6 +673,7 @@ def retrieve_licenses():
 				'valid_from': license['data']['valid_from'],
 				'valid_to': license['data']['valid_to'],
 				'contract': license['data']['contract'],
+				'license_key' : license_transactions[0]['id'],
 				'transfer_key': license_transactions[-1]['id']}
 			evaluation_licenses.append(license_object)
 		
@@ -720,6 +722,8 @@ def transfer_license():
 	recipient_asset = bdb.assets.get(search=recipient)[0]
 	print('RECIPIENT_ASSET')
 	print(recipient_asset)
+	print('ASSET')
+	print(creation_tx)
 	#TODO CATCH DACA NU E e gasit recipient
 
 	verdict = verify_contract(
@@ -763,18 +767,21 @@ def transfer_license():
 
 def create_contract_prolog(e,q_in,q_in_query,q_out):
     print('Process create contract: starting...')
-    while(1):
-        e.wait()
-        contract_name, body = q_in.get().split(" ",1)
-        with open(contract_name,"w") as fo:
-            fo.write(body)
-        prolog = Prolog()
-        prolog.consult(contract_name)
-        query = q_in_query.get()
-        print(query)
-        
-        raspuns = bool(list(prolog.query(query)))
-        q_out.put(raspuns)
+
+    e.wait()
+    contract_name, body = q_in.get().split(" ",1)
+    with open(contract_name,"w") as fo:
+        fo.write(body)
+    prolog = Prolog()
+    print(contract_name)
+    prolog.consult(contract_name)
+    print("received signal2")
+    query = q_in_query.get()
+    print("received signal3")
+    print(query)
+
+    raspuns = bool(list(prolog.query(query)))
+    q_out.put(raspuns)
 
 #return contract in Prolog syntax 
 def contract_form(license_type, valid_countries, duration):
@@ -791,9 +798,17 @@ def verify_contract(contract, license_type, destination_country, current_date):
 	epoch = datetime.datetime.utcfromtimestamp(0)
 	datetime_number = int((current_date-epoch).total_seconds() *1000)
 
+	process_create_contract = multiprocessing.Process(name='create_contract', 
+				target=create_contract_prolog,
+				args=(start_contract_event,queue_in,queue_in_query,queue_out))
+	
+	process_create_contract.start()
+
 	queue_in.put("Contract_name.pl "+ contract)
 	queue_in_query.put("transferlicenta("+str(datetime_number)+","+destination_country+","+license_type+").")
 	start_contract_event.set()
+	
+	process_create_contract.join()
 	
 	result  = queue_out.get()
 	return result
@@ -806,11 +821,6 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
     args = parser.parse_args()
     port = args.port
-    
-    process_create_contract = multiprocessing.Process(name='create_contract', 
-                      target=create_contract_prolog,
-                      args=(start_contract_event,queue_in,queue_in_query,queue_out))
-    process_create_contract.start()
 
     app.run(host='127.0.0.1', port=port)
 

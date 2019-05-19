@@ -1,4 +1,6 @@
 transferlicenta(X,Y,T):-cantransfer(T),licentavalida(X),taravalida(Y).
-taravalida(uruguay).
-licentavalida(X):- X < 1597667918385.
+taravalida(franta).
+taravalida(germania).
+taravalida(romania).
+licentavalida(X):- X < 1575456185887.
 cantransfer(full).
