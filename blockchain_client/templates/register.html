@@ -16,7 +16,7 @@
 
   </head>
 
-  <body>
+  <body onload="checkCookie()">
 
      <!-- Alert Message for successful login -->
         <div class="modal modal-alert fade" id="success_login" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
@@ -102,7 +102,36 @@
 
       </div>
 
+    <!-- Modal -->
+    <div class="modal modal-alert fade" id="basicModalNodeURL" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
+        <div class="modal-dialog">
 
+          <div class="modal-content">
+
+            <div class="modal-header">
+              <div class="modal-title col-md-10">Please specify the node URL you want to connect to:</div>
+              <button type="button" class="close col-md-2" data-dismiss="modal" aria-hidden="true">&times;</button>
+            </div>
+
+            <div class="modal-body">
+
+              <div class="row">
+                <label class="col-sm-12">Blockchain Node URL:</label>
+                <div class="col-sm-12">
+                  <input type="text" name="node_url" id="node_url" rows="2" class="form-control" value="http://127.0.0.1:5000">
+                </div>
+              </div>
+
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success" data-dismiss="modal">Ok</button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
 
 
     <!-- Bootstrap core JavaScript -->
@@ -120,8 +149,10 @@
               document.getElementById("username").value !== "" &&
               document.getElementById("password").value !== "" ){
             
+              var node_url = readCookie("node_url");
+
               $.ajax({
-                url: "/register/user",
+                url: node_url + "/register/user",
                 type: "POST",
                 dataType : 'json',
                 data: $('#register_user_form').serialize(),
@@ -144,10 +175,47 @@
               });
             }
             else {
-              alert("Passwords do not match or you did not specify all the information.");
+              alert("Passwords do not match or there are some fields missing.");
             }
           });
       });
+
+      function checkCookie() {
+        var node_url=readCookie("node_url");
+        if (node_url === null) {
+          $("#basicModalNodeURL").modal('show');
+        }
+      }
+
+      $('#basicModalNodeURL').on('hide.bs.modal', function() {
+          document.cookie = createCookie("node_url",document.getElementById("node_url").value);
+      });
+
+      function readCookie(name) {
+          var nameEQ = name + "=";
+          var ca = document.cookie.split(';');
+          for(var i=0;i < ca.length;i++) {
+              var c = ca[i];
+              while (c.charAt(0)==' ') {
+                  c = c.substring(1,c.length);
+              }
+              if (c.indexOf(nameEQ) == 0) {
+                  return c.substring(nameEQ.length,c.length);
+              }
+          }
+        return null;
+        }
+
+      function createCookie(name,value,days) {
+        if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 *1000));
+            var expires = "; expires=" + date.toGMTString();
+        } else {
+            var expires = "";
+        }
+        document.cookie = name + "=" + value + expires + "; path=/";
+      }
 
       function goBack() {
          window.history.back();

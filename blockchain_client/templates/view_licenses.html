@@ -52,6 +52,7 @@
               </a>
               <div class="dropdown-menu" aria-labelledby="navbarDropdown">
                 <a class="dropdown-item" href="/reset_password">Reset password</a>
+                <a class="dropdown-item" onClick="eraseCookie();" href="/view/licenses" >Change node URL</a>
                 <a class="dropdown-item" href="/">Log out</a>
               </div>
             </li>
@@ -76,13 +77,45 @@
     </form>
     </div>
 
-    <br>
+  <br>
+  
     <!-- Blockchain Licenses Table -->
     <div class="container">
       <table id="licenses_table" class="table table-striped table-bordered" cellspacing="0" width="100%">
       </table>
     </div>
 
+
+    <!-- Modal -->
+    <div class="modal modal-alert fade" id="basicModalNodeURL" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
+        <div class="modal-dialog">
+
+          <div class="modal-content">
+
+            <div class="modal-header">
+              <div class="modal-title col-md-10">Please specify the node URL:</div>
+              <button type="button" class="close col-md-2" data-dismiss="modal" aria-hidden="true">&times;</button>
+            </div>
+
+            <div class="modal-body">
+
+              <div class="row">
+                <label class="col-sm-12">Blockchain Node URL:</label>
+                <div class="col-sm-12">
+                  <input type="text" name="node_url" id="node_url" rows="2" class="form-control" value="http://127.0.0.1:5000">
+                </div>
+              </div>
+
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success" data-dismiss="modal">Ok</button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
 
     <!-- Bootstrap core JavaScript -->
     <script src="/static/vendor/jquery/jquery.min.js"></script>
@@ -112,10 +145,17 @@
           return;
         }
 
-        document.getElementById("username").value = user;
+        var node_url=readCookie("node_url");
+        if (node_url === null) {
+          $("#basicModalNodeURL").modal('show');
 
+        }
+
+        node_url=readCookie("node_url");
+        document.getElementById("username").value = user;
+        
         $.ajax({
-            url: "/retrieve_licenses",
+            url: node_url + "/retrieve_licenses",
             type: 'POST',
             dataType : 'json',
             data: $('#user_form').serialize(),
@@ -205,7 +245,11 @@
           });
 
       }
-      
+
+      $('#basicModalNodeURL').on('hide.bs.modal', function() {
+          document.cookie = createCookie("node_url",document.getElementById("node_url").value);
+          location.reload(); 
+      });
       
       function readCookie(name) {
         var nameEQ = name + "=";
@@ -222,6 +266,19 @@
       return null;
       }
 
+      function createCookie(name,value,days) {
+            if (days) {
+                var date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 *1000));
+                var expires = "; expires=" + date.toGMTString();
+            } else {
+                var expires = "";
+            }
+            document.cookie = name + "=" + value + expires + "; path=/";
+          }
+        function eraseCookie(){
+          createCookie("node_url","",-1);
+        }
     </script>
 
 

@@ -2,9 +2,11 @@
 #bugs
 1. gardare formuri campuri goale
 1. caz in care license mistmatch sau user mistmatch print error
+1. change icons la view licenses
+1. gardare node url unreachable
+1. wrong password when show privatae key print message
 
 #features
-3. print pagina separata cu licente active ale unui user
 6. separat codul client de server
 5. apelare in paralel a contractelor 
 7. mecanism de mining inainte de transferul si generarea licentelor
