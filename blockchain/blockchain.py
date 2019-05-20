@@ -216,7 +216,6 @@ CORS(app)
 start_contract_event = multiprocessing.Event()
 queue_in = multiprocessing.Queue()
 queue_out = multiprocessing.Queue()
-queue_in_query  = multiprocessing.Queue()
 
 bdb_root_url = 'http://localhost:9984' 
 bdb = BigchainDB(bdb_root_url)
@@ -765,23 +764,27 @@ def transfer_license():
 
 	return jsonify(response), 200
 
-def create_contract_prolog(e,q_in,q_in_query,q_out):
-    print('Process create contract: starting...')
+def create_contract_prolog(e,q_in,q_out):
+	print('Process create contract: starting...')
 
-    e.wait()
-    contract_name, body = q_in.get().split(" ",1)
-    with open(contract_name,"w") as fo:
-        fo.write(body)
-    prolog = Prolog()
-    print(contract_name)
-    prolog.consult(contract_name)
-    print("received signal2")
-    query = q_in_query.get()
-    print("received signal3")
-    print(query)
+	while(1):
+		e.wait()
+		
+		guid, query, contract_body = q_in.get().split("\n",2)
+		contract_clauses = contract_body.split("\n")
 
-    raspuns = bool(list(prolog.query(query)))
-    q_out.put(raspuns)
+		prolog = Prolog()
+		for clause in contract_clauses:
+			if clause == "":
+				continue
+			clause_for_assert = "("+clause.split(".")[0]+")"
+			print(clause_for_assert)
+			prolog.assertz(clause_for_assert)
+		
+		raspuns = bool(list(prolog.query(query)))
+		print(query)
+
+		q_out.put(guid+"\n"+str(raspuns))
 
 #return contract in Prolog syntax 
 def contract_form(license_type, valid_countries, duration):
@@ -798,20 +801,19 @@ def verify_contract(contract, license_type, destination_country, current_date):
 	epoch = datetime.datetime.utcfromtimestamp(0)
 	datetime_number = int((current_date-epoch).total_seconds() *1000)
 
-	process_create_contract = multiprocessing.Process(name='create_contract', 
-				target=create_contract_prolog,
-				args=(start_contract_event,queue_in,queue_in_query,queue_out))
-	
-	process_create_contract.start()
+	guid = '1'
 
-	queue_in.put("Contract_name.pl "+ contract)
-	queue_in_query.put("transferlicenta("+str(datetime_number)+","+destination_country+","+license_type+").")
+	queue_in.put(guid + "\ntransferlicenta("+str(datetime_number)+","+destination_country+","+license_type+").\n"+contract)
 	start_contract_event.set()
 	
-	process_create_contract.join()
-	
-	result  = queue_out.get()
-	return result
+	while(1):
+		guid_retrieved, result  = queue_out.get().split("\n",1)
+		if guid_retrieved == guid:
+			return result
+		else :
+			queue_out.put(guid_retrieved+"\n"+result)
+
+	return ""
 
 
 if __name__ == '__main__':
@@ -822,5 +824,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     port = args.port
 
+    contract_processes = []
+    for i in range(0,5):
+        process_create_contract = multiprocessing.Process(name='create_contract', 
+                    target=create_contract_prolog,
+                    args=(start_contract_event,queue_in,queue_out))
+        contract_processes.append(process_create_contract)
+        process_create_contract.start()		
+    
     app.run(host='127.0.0.1', port=port)
 
