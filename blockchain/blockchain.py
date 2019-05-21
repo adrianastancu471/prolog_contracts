@@ -499,7 +499,9 @@ def login_user():
 	if idx_asset == -1:
 		response = {'account': 'invalid'}
 		return jsonify(response), 200
-	
+
+	print(user_transaction[idx_transaction]['id'])
+
 	response = {'account': user_transaction[idx_transaction]['id']}
 
 	return jsonify(response), 200
@@ -825,7 +827,7 @@ if __name__ == '__main__':
     port = args.port
 
     contract_processes = []
-    for i in range(0,5):
+    for i in range(0,3):
         process_create_contract = multiprocessing.Process(name='create_contract', 
                     target=create_contract_prolog,
                     args=(start_contract_event,queue_in,queue_out))

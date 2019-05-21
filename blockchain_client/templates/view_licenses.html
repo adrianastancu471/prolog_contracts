@@ -109,8 +109,9 @@
             </div>
 
             <div class="modal-footer">
-              <button type="button" class="btn btn-success" data-dismiss="modal">Ok</button>
-            </div>
+                <button type="button" id="check_connection" class="btn btn-success" >Check connection</button>
+              </div>
+  
 
           </div>
 
@@ -153,6 +154,7 @@
           $("#basicModalNodeURL").modal('show');
 
         }
+        document.getElementById("node_url").value = node_url;
 
         node_url=readCookie("node_url");
         document.getElementById("username").value = user;
@@ -256,6 +258,23 @@
           location.reload(); 
       });
       
+      $(function () {
+          $("#check_connection").click(function () {
+            UrlExists(document.getElementById("node_url").value, function(status) {
+              if(status != 200) {
+                alert("The selected node is not reachable.");
+                document.getElementById("node_url").value="";
+                location.reload();
+                $("#basicModalNodeURL").modal('show');
+                return;
+              }  
+              else{
+                alert("Connection succeded.");
+              }              
+              });
+          });
+      });
+
       function readCookie(name) {
         var nameEQ = name + "=";
         var ca = document.cookie.split(';');
@@ -283,6 +302,17 @@
           }
         function eraseCookie(){
           createCookie("node_url","",-1);
+        }
+        function UrlExists(url, cb){
+            jQuery.ajax({
+                url:      url,
+                dataType: 'text',
+                type:     'GET',
+                complete:  function(xhr){
+                    if(typeof cb === 'function')
+                       cb.apply(this, [xhr.status]);
+                }
+            });
         }
     </script>
 

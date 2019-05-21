@@ -56,6 +56,8 @@
           </div>
 
           <div class="modal-footer">
+              
+            <button type="button" id="check_connection" class="btn btn-success">Check connection</button>
            <!-- <button type="button" id="button_forgot_password"class="btn btn-danger"> Forgot password </button> -->
             <button type="button" id="button_register" class="btn btn-success">Register</button>
             <button type="button" id="button_login" class="btn btn-success">Login</button>
@@ -68,19 +70,27 @@
     <!-- Bootstrap core JavaScript -->
     <script src="/static/vendor/jquery/jquery.min.js"></script>
     <script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-
+ 
 
     <script>
+
 
      $(function () {
           $("#button_login").click(function () {
 
             var node_url=getCookie("node_url");
-            if (node_url == "") {
+            if (node_url == "" && document.getElementById("node_url").value =="") {
+              alert("Node URL cannot be empty!");
+              return;
+            }
+            if(node_url == "")
+            {
               document.cookie = createCookie("node_url",document.getElementById("node_url").value);
             }
 
             node_url=getCookie("node_url");
+
+            console.log(node_url);
 
             $.ajax({
               url: node_url + "/login/user",
@@ -95,6 +105,7 @@
                   alert("Account invalid!");
                 }else{
                   document.cookie = createCookie("user_id",response["account"]);
+                  console.log(response["account"]);
                   document.cookie = createCookie("username",document.getElementById("username").value);
                   document.location.href="/index";
                 }
@@ -112,6 +123,21 @@
           });
       });
 
+      $(function () {
+          $("#check_connection").click(function () {
+            UrlExists(document.getElementById("node_url").value, function(status) {
+              if(status != 200) {
+                alert("The selected node is not reachable.");
+                document.getElementById("node_url").value="";
+                location.reload();
+                return;
+              }  
+              else{
+                alert("Connection succeded.");
+              }              
+              });
+          });
+      });
 
       function checkCookie() {
         var user=getCookie("username");
@@ -169,6 +195,18 @@
         function eraseCookie(name) {
             createCookie(name,"",-1);
         }  
+
+        function UrlExists(url, cb){
+            jQuery.ajax({
+                url:      url,
+                dataType: 'text',
+                type:     'GET',
+                complete:  function(xhr){
+                    if(typeof cb === 'function')
+                       cb.apply(this, [xhr.status]);
+                }
+            });
+        }
     </script>
 
 
