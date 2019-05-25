@@ -3,14 +3,13 @@
 1. gardare formuri campuri goale
 1. caz in care license mistmatch sau user mistmatch print error
 1. wrong password when show privatae key print message
-1. verifica daca sunt corecte cheile afisate pentru licente create/transfer
 2. add GUID
 
 #features
-7. mecanism de mining inainte de transferul si generarea licentelor-MIERCURI
+7. mecanism de mining inainte de transferul si generarea licentelor
 
 \prefer
-10. catch transfer interzis si inlocuit cu transfer catre producator - JOI
+10. catch transfer interzis si inlocuit cu transfer catre producator 
 
 \optional
 4. button pentru transfer direct al unei licente catre un user

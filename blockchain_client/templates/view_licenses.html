@@ -43,9 +43,6 @@
               <a class="nav-link" href="/view/licenses">View Licenses</a>
               <span class="sr-only">(current)</span>
             </li>  
-            <li class="nav-item">
-              <a class="nav-link" href="/view/transactions">View Transactions</a>
-            </li>  
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 Account
@@ -170,7 +167,8 @@
               //Generate Licenses Table
               var licenses = [];
               count = 1;
-
+              
+              console.log(response['full_licenses'].length)
               for (i = 0; i < response['full_licenses'].length; i++) { 
 
                 //format date 
@@ -197,10 +195,10 @@
                               "product":response["evaluation_licenses"][i]['product'],
                               "valid_from":response["evaluation_licenses"][i]['valid_from'],
                               "valid_to":response["evaluation_licenses"][i]['valid_to'],
-                              "license_key":response["full_licenses"][i]['license_key'],
+                              "license_key":response["evaluation_licenses"][i]['license_key'],
                               "transfer_key":response["evaluation_licenses"][i]['transfer_key'],
                               "type":"Evaluation",
-                              "contract":response["full_licenses"][i]['contract']};
+                              "contract":response["evaluation_licenses"][i]['contract']};
                 licenses.push(lic);
 
                 count += 1;

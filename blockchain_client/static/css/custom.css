@@ -9,3 +9,10 @@ td.details-control.sorting_1{
 tr.shown td.details-control.sorting_1 {
     background: url('../resources/details_close.png') no-repeat center center;
 }
+td.details-control{
+    background: url('../resources/details_open.png') no-repeat center center;
+    cursor: pointer;
+}
+tr.shown td.details-control {
+    background: url('../resources/details_close.png') no-repeat center center;
+}
