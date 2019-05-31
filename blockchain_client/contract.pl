@@ -1,1 +1,0 @@
-pereche_chei(pk_1,priv_1).
