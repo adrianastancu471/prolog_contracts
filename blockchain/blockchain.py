@@ -114,6 +114,7 @@ def generate_license():
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
 			idx = len(user_transaction)-1
 			user_idx = i
+			break
 
 	if idx == -1:
 		response = {'account':'invalid'}
@@ -152,6 +153,97 @@ def generate_license():
 
 	return jsonify(response), 200
 
+@app.route('/generate/transfer/license', methods=['POST'])
+def generate_transfer_license():
+	
+	password = request.form['password']
+	username = request.form['username']
+	product_name = request.form['product_name']
+	duration = int(request.form['duration'])
+	valid_countries = request.form['valid_countries']
+	license_type = request.form['license_type']
+	end_user = request.form['end_user']
+
+	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
+	key32 = "{: <32}".format(password).encode("utf-8")
+
+	user_asset = bdb.assets.get(search=username)
+	idx = -1
+	user_transaction=[]
+	user_idx = -1
+	for i,user in enumerate(user_asset):
+		user_transaction = bdb.transactions.get(asset_id=user["id"])
+		transaction = user_transaction[len(user_transaction)-1]
+		if transaction is None or 'metadata' not in transaction or transaction['metadata'] is None or 'account' not in transaction['metadata']:
+			continue
+		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
+			idx = len(user_transaction)-1
+			user_idx = i
+			break
+
+	if idx == -1:
+		response = {'account':'invalid'}
+		return jsonify(response), 200
+	
+	encrypted_private_key = user_transaction[idx]['metadata']['private_key']
+	cipher = AES.new(key32,AES.MODE_ECB) 
+	private_key = cipher.decrypt(base64.b64decode(encrypted_private_key))
+
+	duration = datetime.datetime.now() + datetime.timedelta(days=duration)
+	
+	epoch = datetime.datetime.utcfromtimestamp(0)
+	datetime_number = int((duration-epoch).total_seconds() *1000)
+	contract = contract_form(license_type,valid_countries,datetime_number)
+	print(contract)
+	
+	license_body = {'data':{'type':license_type,'product':product_name, 
+			'valid_from': datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), 
+			'valid_to' : duration.strftime("%Y-%m-%d %H:%M"),
+			'contract': contract}}
+
+	owner_public_key = user_asset[user_idx]['data']['keypair']['public_key']
+
+	prepared_creation_tx = bdb.transactions.prepare(
+        operation='CREATE', 
+        signers=owner_public_key, 
+        asset=license_body, )
+
+	fulfilled_creation_tx = bdb.transactions.fulfill(
+        prepared_creation_tx, 
+        private_keys=private_key.strip())
+
+	output = bdb.transactions.send_commit(fulfilled_creation_tx)['outputs'][0]
+
+	print(output)
+	print(fulfilled_creation_tx)
+
+	transfer_input = {
+		'fulfillment': output['condition']['details'],
+		'fulfills': {
+			'output_index': 0,
+			'transaction_id': fulfilled_creation_tx['id'],
+		},
+		'owners_before': output['public_keys'],
+	}
+
+	prepared_transfer_tx = bdb.transactions.prepare(
+		operation='TRANSFER',
+		asset=fulfilled_creation_tx,
+		inputs=transfer_input,
+		recipients=end_user,
+	)
+
+	fulfilled_transfer_tx = bdb.transactions.fulfill(
+		prepared_transfer_tx,
+		private_keys=private_key.strip(),
+	)
+
+	bdb.transactions.send_commit(fulfilled_transfer_tx)
+
+	response = {'license_id': fulfilled_creation_tx['id'], 'contract':contract }
+
+	return jsonify(response), 200
+
 #User Register
 @app.route('/register/user', methods=['POST'])
 def register_user():
@@ -176,6 +268,7 @@ def register_user():
 			continue
 		if user['data']['username']== username :
 			idx = i
+			break
 
 	if idx != -1:
 		response = {'username': '', 'account':'exists'}
@@ -247,6 +340,7 @@ def register_producer():
 			continue
 		if user['data']['username']== username :
 			idx = i
+			break
 
 	if idx != -1:
 		response = {'username': '', 'account':'exists'}
@@ -318,6 +412,7 @@ def login_user():
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
 			idx_asset = i
 			idx_transaction = len(user_transaction)-1
+			break
 
 	if idx_asset == -1:
 		response = {'account': 'invalid'}
@@ -422,10 +517,11 @@ def retrieve_private_key():
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
 		if transaction is None or transaction['metadata'] is None:
-			break
+			continue
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
 			idx_asset = i
 			idx_transaction = len(user_transaction)-1
+			break
 
 	if idx_asset == -1:
 		response = {'account': 'invalid'}
@@ -453,9 +549,10 @@ def retrieve_public_key():
 		user_transaction = bdb.transactions.get(asset_id=user["id"])
 		transaction = user_transaction[len(user_transaction)-1]
 		if transaction is None or transaction['metadata'] is None:
-			break
+			continue
 		if transaction['metadata']['account'] == 'active':
 			idx_asset = i
+			break
 
 	if idx_asset == -1:
 		response = {'account': 'invalid'}
@@ -527,6 +624,7 @@ def transfer_license():
 		transaction = user_transaction[len(user_transaction)-1]
 		if transaction['metadata']['account'] == 'active' and transaction['metadata']['password']== password_hash:
 			idx = len(user_transaction)-1
+			break
 
 	if idx == -1:
 		response = {'account':'invalid'}
