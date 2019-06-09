@@ -34,6 +34,8 @@ import base64
 # Instantiate the Node
 app = Flask(__name__)
 CORS(app)
+
+#Prolog event too trigger Prlog consult fron queue_in and output to queue_out
 start_contract_event = multiprocessing.Event()
 queue_in = multiprocessing.Queue()
 queue_out = multiprocessing.Queue()
@@ -45,9 +47,13 @@ bdb = BigchainDB(bdb_root_url)
 def index():
     return render_template('./index.html')
 
+@app.route('/register')
+def register():
+    return render_template('./register.html')
+
 @app.route('/transactions/get')
 def get_transactions():
-	full_license_assets = bdb.assets.get(search="full")
+	full_license_assets = bdb.assets.get(search="full -evaluation")
 	evaluation_license_assets = bdb.assets.get(search="evaluation")
 	full_licenses =[]
 	evaluation_licenses =[]
@@ -59,7 +65,7 @@ def get_transactions():
 			'product': license['data']['product'],
 			'valid_from': license['data']['valid_from'],
 			'valid_to': license['data']['valid_to'],
-			'contract': license['data']['contract'],
+			'contract': license['data']['contract'].replace(".",".<br>"),
 			'license_key' : license_transactions[0]['id'],
 			'transfer_key': license_transactions[-1]['id'],
 			'owner': owner[0]['data']['username']
@@ -73,7 +79,7 @@ def get_transactions():
 			'product': license['data']['product'],
 			'valid_from': license['data']['valid_from'],
 			'valid_to': license['data']['valid_to'],
-			'contract': license['data']['contract'],
+			'contract': license['data']['contract'].replace(".",".<br>"),
 			'license_key' : license_transactions[0]['id'],
 			'transfer_key': license_transactions[-1]['id'],
 			'owner': owner[0]['data']['username']}
@@ -188,9 +194,10 @@ def register_user():
 	cipher = AES.new(key32,AES.MODE_ECB) 
 	private_key_encoded = base64.b64encode(cipher.encrypt(private_key_padded))
 
-	user = {'data':{'username':"",'email':"",'country':"",'keypair':{'public_key':''}}}
+	user = {'data':{'username':"",'email':"",'role':"",'country':"",'keypair':{'public_key':''}}}
 	user['data']['username']= username
 	user['data']['email']= email
+	user['data']['role']= 'user'
 	user['data']['country']= country
 	metadata = {'account': 'active','password':password_hash,'private_key':private_key_encoded}
 
@@ -204,7 +211,78 @@ def register_user():
         asset=user, 
 		metadata=metadata,)
 		
-	print("fulfull")
+	print("fulfill")
+	fulfilled_creation_tx = bdb.transactions.fulfill(
+        prepared_creation_tx, 
+        private_keys=private_key_original)
+
+	print("commit")
+	bdb.transactions.send_commit(fulfilled_creation_tx)
+
+	response = {'username': username,'account':'created'}
+
+	return jsonify(response), 200
+
+#register producer
+@app.route('/register/producer', methods=['POST'])
+def register_producer():
+	
+	email = request.form['email']
+	username = request.form['username']
+	password = request.form['password']
+	country = request.form['country']
+
+	#generez hash-ul parolei 
+	password_hash = SHA256.new(password.encode('utf-8')).hexdigest()
+
+	print("asset getbefore")
+	#verificare daca mai exista acel user
+	user_asset = bdb.assets.get(search=username)
+	print("asset get")
+	idx = -1
+	print(len(user_asset))
+	for i, user in enumerate(user_asset):
+		print(user)
+		if 'username' not in user['data']:
+			continue
+		if user['data']['username']== username :
+			idx = i
+
+	if idx != -1:
+		response = {'username': '', 'account':'exists'}
+		return jsonify(response), 200
+
+	#criptare parola si cheie privata
+	account_keypair = generate_keypair()
+	private_key_original = account_keypair.private_key
+	private_key_padded = account_keypair.private_key.encode("utf-8").rjust(48)
+	print(len(private_key_padded))
+	print(private_key_padded)
+	print(len(account_keypair.private_key))
+	print(account_keypair.private_key)
+
+	key32 = "{: <32}".format(password).encode("utf-8")
+	cipher = AES.new(key32,AES.MODE_ECB) 
+	private_key_encoded = base64.b64encode(cipher.encrypt(private_key_padded))
+
+	user = {'data':{'username':"",'email':"",'role':"",'country':"",'keypair':{'public_key':''}}}
+	user['data']['username']= username
+	user['data']['email']= email
+	user['data']['role']= 'producer'
+	user['data']['country']= country
+	metadata = {'account': 'active','password':password_hash,'private_key':private_key_encoded}
+
+	
+	user['data']['keypair']['public_key'] = account_keypair.public_key
+
+	print("prepare")
+	prepared_creation_tx = bdb.transactions.prepare(
+        operation='CREATE', 
+        signers=account_keypair.public_key, 
+        asset=user, 
+		metadata=metadata,)
+		
+	print("fulfill")
 	fulfilled_creation_tx = bdb.transactions.fulfill(
         prepared_creation_tx, 
         private_keys=private_key_original)
@@ -246,8 +324,9 @@ def login_user():
 		return jsonify(response), 200
 
 	print(user_transaction[idx_transaction]['id'])
+	print(user_transaction[idx_transaction]['asset']['data']['role'])
 
-	response = {'account': user_transaction[idx_transaction]['id']}
+	response = {'account': user_transaction[idx_transaction]['id'], 'role' :user_transaction[idx_transaction]['asset']['data']['role'] }
 
 	return jsonify(response), 200
 
@@ -407,7 +486,7 @@ def retrieve_licenses():
 				'product': license['data']['product'],
 				'valid_from': license['data']['valid_from'],
 				'valid_to': license['data']['valid_to'],
-				'contract': license['data']['contract'],
+				'contract': license['data']['contract'].replace(".",".<br>"),
 				'license_key' : license_transactions[0]['id'],
 				'transfer_key': license_transactions[-1]['id']}
 			full_licenses.append(license_object)
@@ -418,7 +497,7 @@ def retrieve_licenses():
 				'product': license['data']['product'],
 				'valid_from': license['data']['valid_from'],
 				'valid_to': license['data']['valid_to'],
-				'contract': license['data']['contract'],
+				'contract': license['data']['contract'].replace(".",".<br>"),
 				'license_key' : license_transactions[0]['id'],
 				'transfer_key': license_transactions[-1]['id']}
 			evaluation_licenses.append(license_object)
@@ -427,6 +506,7 @@ def retrieve_licenses():
 
 	return jsonify(response), 200
 
+#transfer licenta
 @app.route('/transfer/license', methods=['POST'])
 def transfer_license():
 	
@@ -510,27 +590,35 @@ def transfer_license():
 
 	return jsonify(response), 200
 
+#parallel prolog process
 def create_contract_prolog(e,q_in,q_out):
 	print('Process create contract: starting...')
 
 	while(1):
 		e.wait()
 		
+		#we take the contract body from queue
+		#each contract is identified by guid, and has a specific query
 		guid, query, contract_body = q_in.get().split("\n",2)
 		contract_clauses = contract_body.split("\n")
 
+		#create the Prolog instance
 		prolog = Prolog()
+		#assert each clause to Prolog knowledge base
 		for clause in contract_clauses:
+			#empty clauses are ignored
 			if clause == "":
 				continue
 			clause_for_assert = "("+clause.split(".")[0]+")"
-			print(clause_for_assert)
+			#the assert statement equivalent to assertz Prolog command
 			prolog.assertz(clause_for_assert)
 		
-		raspuns = bool(list(prolog.query(query)))
+		#consult Prolog with the given query 
+		#check if the answer list is null then the answer is False
+		answer = bool(list(prolog.query(query)))
 		print(query)
 
-		q_out.put(guid+"\n"+str(raspuns))
+		q_out.put(guid+"\n"+str(answer))
 
 #return contract in Prolog syntax 
 def contract_form(license_type, valid_countries, duration):

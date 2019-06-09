@@ -32,9 +32,11 @@
               <a class="nav-link" href="/index">My Wallet
               </a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/make/transaction">Generate License</a>
-            </li>
+            <div id="generate_license_menu" style="display: none;">
+                <li class="nav-item">
+                  <a class="nav-link" href="/make/transaction">Generate License</a>
+                </li>
+            </div>
             <li class="nav-item">
               <a class="nav-link" href="/transfer/transaction">Transfer License</a>
             </li>
@@ -155,6 +157,15 @@
 
         node_url=readCookie("node_url");
         document.getElementById("username").value = user;
+
+         
+        var role=readCookie("role");
+        if (role === null) {
+          document.location.href="/";
+        }
+        if (role === "producer") {
+          document.getElementById("generate_license_menu").style.display = "block";
+        }
         
         $.ajax({
             url: node_url + "/retrieve_licenses",

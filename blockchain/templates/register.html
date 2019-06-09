@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Blockchain Client</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="/static/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/custom.css" rel="stylesheet">
+
+  </head>
+
+  <body>
+
+      <!-- Navigation -->
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+          <a class="navbar-brand" href="#">Backend server</a>
+          <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarResponsive">
+            <ul class="navbar-nav ml-auto">
+              <li class="nav-item active">
+                <a class="nav-link" href="/index">View Licenses
+                  <span class="sr-only">(current)</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/register">Register license producer</a>
+              </li>
+            </ul>
+          </div>        
+        </div>
+      </nav>
+
+   <!-- Modal -->
+      <div class="modal-dialog" >
+
+        <div class="modal-content">
+
+            <div class="modal-body">
+
+            <form id="register_user_form">
+
+                <div class="row">
+                  <label class="col-sm-12">E-mail:</label>
+                  <div class="col-sm-12">
+                    <input type="text" name="email" id="email" rows="2" class="form-control" >
+
+                  </div>
+                </div>
+
+                <div class="row">
+                  <label class="col-sm-12">Username:</label>
+                  <div class="col-sm-12">
+                    <input type="text" name="username" id="username" rows="2" class="form-control" >
+                  </div>
+                </div>
+
+
+                <div class="row">
+                  <label class="col-sm-12">Country:</label>
+                  <div class="col-sm-12">
+                    <input type="text" name="country" id="country" rows="2" class="form-control" >
+                  </div>
+                </div>
+
+                <div class="row">
+                  <label class="col-sm-12">Password:</label>
+                  <div class="col-sm-12">
+                    <input type="password" name="password" id="password" rows="2" class="form-control" >
+                  </div>
+                </div>
+
+
+                <div class="row">
+                  <label class="col-sm-12">Re-enter password:</label>
+                  <div class="col-sm-12">
+                    <input type="password" name="password2" id="password2" rows="2" class="form-control" >
+                  </div>
+                </div>
+               
+            </form>
+
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" id="button_cancel" class="btn btn-danger" onclick="goBack()"> Cancel </button>
+            <button type="button" id="button_register" class="btn btn-success">Register</button>
+          </div>
+
+        </div>
+
+      </div>
+
+   
+    <!-- Bootstrap core JavaScript -->
+    <script src="/static/vendor/jquery/jquery.min.js"></script>
+    <script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+
+    <script>
+
+    $(function () {
+          $("#button_register").click(function () {
+
+            if(document.getElementById("password").value === document.getElementById("password2").value &&
+              document.getElementById("email").value !== "" && 
+              document.getElementById("username").value !== "" &&
+              document.getElementById("password").value !== "" ){
+            
+              $.ajax({
+                url: "/register/producer",
+                type: "POST",
+                dataType : 'json',
+                data: $('#register_user_form').serialize(),
+                success: function(response){
+                  var account_state = response["account"];
+
+                  if(account_state === "exists"){
+                    alert("Account exists, please select a different username");
+                    document.getElementById("password").value ="";
+                    document.getElementById("password2").value ="";
+                  }else{
+                  document.location.href="/";
+                  document.cookie = "username="+response["username"];
+                  }                  
+                },
+                error: function(error){
+                  console.log(error);
+                }
+              });
+            }
+            else {
+              alert("Passwords do not match or there are some fields missing.");
+            }
+          });
+      });
+
+      function readCookie(name) {
+          var nameEQ = name + "=";
+          var ca = document.cookie.split(';');
+          for(var i=0;i < ca.length;i++) {
+              var c = ca[i];
+              while (c.charAt(0)==' ') {
+                  c = c.substring(1,c.length);
+              }
+              if (c.indexOf(nameEQ) == 0) {
+                  return c.substring(nameEQ.length,c.length);
+              }
+          }
+        return null;
+        }
+
+      function createCookie(name,value,days) {
+        if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 *1000));
+            var expires = "; expires=" + date.toGMTString();
+        } else {
+            var expires = "";
+        }
+        document.cookie = name + "=" + value + expires + "; path=/";
+      }
+
+      function goBack() {
+         window.history.back();
+      }
+
+      function UrlExists(url, cb){
+            jQuery.ajax({
+                url:      url,
+                dataType: 'text',
+                type:     'GET',
+                complete:  function(xhr){
+                    if(typeof cb === 'function')
+                       cb.apply(this, [xhr.status]);
+                }
+            });
+        }
+    </script>
+
+
+
+  </body>
+
+</html>

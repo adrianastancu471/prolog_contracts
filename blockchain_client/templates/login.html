@@ -105,8 +105,9 @@
                   alert("Account invalid!");
                 }else{
                   document.cookie = createCookie("user_id",response["account"]);
-                  console.log(response["account"]);
+                  //console.log(response["account"]);
                   document.cookie = createCookie("username",document.getElementById("username").value);
+                  document.cookie = createCookie("role",response["role"]);
                   document.location.href="/index";
                 }
               },
